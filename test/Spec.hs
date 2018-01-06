@@ -13,7 +13,7 @@ import Control.Concurrent.MVar (putMVar, newEmptyMVar, readMVar)
 import qualified Data.ByteString as BS
 import Control.Monad (when)
 
-import Control.Concurrent.Async (async, cancel, wait)
+import Control.Concurrent.Async (async, cancel, wait, race)
 
 import Control.Exception (catch, SomeException)
 
@@ -48,22 +48,19 @@ attemptEcho addr msg = do
 echoSuccess :: SockAddr -> IO Bool
 echoSuccess addr = do
   let msg = "foobar" :: BS.ByteString
-  resp <- returnAfter 100 (attemptEcho addr msg) ""
+  resp <- timeoutAfter 10 (attemptEcho addr msg) (return "")
   return (msg == resp)
 
-returnAfter :: Int -> IO a -> a -> IO a
-returnAfter millisec action onFail =
-  catch (failAfter millisec action) (returnOnFail onFail)
+-- timeoutAfter returns the result of onTimeout if action does not return
+-- within millisec milliseconds.
+timeoutAfter :: Int -> IO a -> IO a -> IO a
+timeoutAfter millisec action onTimeout = do
+  result <- race action delayReturn
+  return $ either id id result
   where
-    returnOnFail :: a -> SomeException -> IO a
-    returnOnFail onFail _ = return onFail
-
-failAfter :: Int -> IO a -> IO a
-failAfter millisec action = do
-  a <- async action
-  threadDelay (millisec * 1000)
-  cancel a
-  wait a
+    delayReturn = do
+      threadDelay (millisec * 1000)
+      onTimeout
 
 main :: IO ()
 main = hspec $ do
@@ -83,9 +80,7 @@ main = hspec $ do
       let proxy = proxyFromConfig (Nothing, echoAddr)
       proxy <- enableProxy proxy
       proxyEnabled proxy `shouldBe` True
-      let addr = case proxyAddr proxy of
-                   Just addr -> addr
-                   Nothing -> error "proxy not enabled"
+      let Just addr = proxyAddr proxy
       echoSuccess echoAddr `shouldReturn` True
       proxy <- disableProxy proxy
       proxyEnabled proxy `shouldBe` False
