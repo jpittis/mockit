@@ -1,18 +1,21 @@
 module Lib
-    ( localhost
-    , Config
-    , startProxy
+    ( Config
+    , proxyFromConfig
+    , Proxy
+    , proxyAddr
+    , enableProxy
+    , disableProxy
+    , proxyEnabled
+    , localhost
     ) where
 
 import Network.Socket.ByteString
 import Network.Socket hiding (send, recv)
-import Control.Concurrent (forkIO)
 import Control.Monad (forever)
 import Data.Maybe (fromMaybe)
+import Control.Concurrent.Async (async)
 
 localhost = (tupleToHostAddress (127, 0, 0, 1))
-
-type Config = (Maybe SockAddr, SockAddr)
 
 proxySocket :: Socket -> Socket -> IO ()
 proxySocket from to = do
@@ -24,19 +27,45 @@ proxyConnection :: Socket -> SockAddr -> IO ()
 proxyConnection conn toAddr = do
   upstream <- socket AF_INET Stream 0
   connect upstream toAddr
-  forkIO $ proxySocket conn upstream
+  async $ proxySocket conn upstream
   proxySocket upstream conn
 
 listenLoop :: Socket -> SockAddr -> IO ()
 listenLoop server toAddr = do
   (conn, _) <- accept server
-  forkIO $ proxyConnection conn toAddr
+  async $ proxyConnection conn toAddr
   listenLoop server toAddr
 
-startProxy :: Config -> IO SockAddr
-startProxy (listenAddr, upstreamAddr) = do
+type Config = (Maybe SockAddr, SockAddr) -- TODO consider not exposing this
+
+data Proxy = Proxy (Config, ProxyState)
+data ProxyState =
+    Disabled
+  | Enabled (SockAddr, Socket)
+
+proxyFromConfig :: Config -> Proxy
+proxyFromConfig config = Proxy (config, Disabled)
+
+enableProxy :: Proxy -> IO Proxy
+enableProxy proxy@(Proxy (_, Enabled _)) = return proxy
+enableProxy (Proxy (config@(listenAddr, upstreamAddr), Disabled)) = do
   server <- socket AF_INET Stream 0
   bind server $ fromMaybe (SockAddrInet aNY_PORT localhost) listenAddr
   listen server 1
-  forkIO $ listenLoop server upstreamAddr
-  getSocketName server
+  async $ listenLoop server upstreamAddr
+  addr <- getSocketName server
+  return $ Proxy (config, Enabled (addr, server))
+
+disableProxy :: Proxy -> IO Proxy
+disableProxy proxy@(Proxy (_, Disabled)) = return proxy
+disableProxy (Proxy (config, Enabled (_, server))) = do
+  close server
+  return $ Proxy (config, Disabled)
+
+proxyAddr :: Proxy -> Maybe SockAddr
+proxyAddr (Proxy (_, Enabled (addr, _))) = Just addr
+proxyAddr _ = Nothing
+
+proxyEnabled :: Proxy -> Bool
+proxyEnabled (Proxy (_, Enabled _)) = True
+proxyEnabled _ = False

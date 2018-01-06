@@ -37,5 +37,5 @@ configFromArgs = do
 
 main :: IO ()
 main = do
-  configFromArgs >>= startProxy
+  configFromArgs >>= enableProxy . proxyFromConfig
   return ()
