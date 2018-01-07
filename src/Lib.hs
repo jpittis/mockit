@@ -1,5 +1,5 @@
 module Lib
-    ( Config
+    ( Config (Config)
     , proxyFromConfig
     , Proxy
     , proxyAddr
@@ -36,36 +36,36 @@ listenLoop server toAddr = do
   async $ proxyConnection conn toAddr
   listenLoop server toAddr
 
-type Config = (Maybe SockAddr, SockAddr)
+data Config = Config (Maybe SockAddr) SockAddr
 
-data Proxy = Proxy (Config, ProxyState)
+data Proxy = Proxy Config ProxyState
 data ProxyState =
     Disabled
-  | Enabled (SockAddr, Socket)
+  | Enabled SockAddr Socket
 
 proxyFromConfig :: Config -> Proxy
-proxyFromConfig config = Proxy (config, Disabled)
+proxyFromConfig config = Proxy config Disabled
 
 enableProxy :: Proxy -> IO Proxy
-enableProxy proxy@(Proxy (_, Enabled _)) = return proxy
-enableProxy (Proxy (config@(listenAddr, upstreamAddr), Disabled)) = do
+enableProxy proxy@(Proxy _ (Enabled _ _)) = return proxy
+enableProxy (Proxy config@(Config listenAddr upstreamAddr) Disabled) = do
   server <- socket AF_INET Stream 0
   bind server $ fromMaybe (SockAddrInet aNY_PORT localhost) listenAddr
   listen server 1
   async $ listenLoop server upstreamAddr
   addr <- getSocketName server
-  return $ Proxy (config, Enabled (addr, server))
+  return $ Proxy config (Enabled addr server)
 
 disableProxy :: Proxy -> IO Proxy
-disableProxy proxy@(Proxy (_, Disabled)) = return proxy
-disableProxy (Proxy (config, Enabled (_, server))) = do
+disableProxy proxy@(Proxy _ Disabled) = return proxy
+disableProxy (Proxy config (Enabled _ server)) = do
   close server
-  return $ Proxy (config, Disabled)
+  return $ Proxy config Disabled
 
 proxyAddr :: Proxy -> Maybe SockAddr
-proxyAddr (Proxy (_, Enabled (addr, _))) = Just addr
+proxyAddr (Proxy _ (Enabled addr _)) = Just addr
 proxyAddr _ = Nothing
 
 proxyEnabled :: Proxy -> Bool
-proxyEnabled (Proxy (_, Enabled _)) = True
+proxyEnabled (Proxy _ (Enabled _ _)) = True
 proxyEnabled _ = False

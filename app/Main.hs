@@ -25,7 +25,7 @@ configFromArgs = do
   args <- getArgs
   when (not $ (length args) == 2) $ die usage
   case (toAddr (args !! 0), toAddr (args !! 1)) of
-    (Just from, Just to) -> return (Just from, to)
+    (Just from, Just to) -> return (Config (Just from) to)
     otherwise -> die usage
   where
     toAddr portString =

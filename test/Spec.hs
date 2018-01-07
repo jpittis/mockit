@@ -22,13 +22,13 @@ main = hspec $ do
 
   describe "Lib" $ do
     it "does not have an addr when disabled" $ do
-      let proxy = proxyFromConfig (Nothing, testAddr)
+      let proxy = proxyFromConfig (Config Nothing testAddr)
       proxyEnabled proxy `shouldBe` False
       proxyAddr proxy `shouldBe` Nothing
 
     it "proxies between two connections when enabled" $ do
       echoAddr <- startEchoServer True
-      let proxy = proxyFromConfig (Nothing, echoAddr)
+      let proxy = proxyFromConfig (Config Nothing echoAddr)
       proxy <- enableProxy proxy
       proxyEnabled proxy `shouldBe` True
       let Just addr = proxyAddr proxy
