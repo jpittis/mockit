@@ -15,13 +15,13 @@ import Control.Monad (forever)
 import Data.Maybe (fromMaybe)
 import Control.Concurrent.Async (async)
 
-localhost = (tupleToHostAddress (127, 0, 0, 1))
+localhost = tupleToHostAddress (127, 0, 0, 1)
 
 proxySocket :: Socket -> Socket -> IO ()
-proxySocket from to = do
-  forever $ do
-    content <- recv from 4096
-    send to content
+proxySocket from to =
+  forever $
+    do content <- recv from 4096
+       send to content
 
 proxyConnection :: Socket -> SockAddr -> IO ()
 proxyConnection conn toAddr = do

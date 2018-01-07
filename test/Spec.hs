@@ -15,10 +15,10 @@ import Control.Monad (when)
 
 main :: IO ()
 main = hspec $ do
-  describe "EchoServer" $ do
-    it "echos stream data" $ do
-      echoAddr <- startEchoServer True
-      echoSuccess echoAddr `shouldReturn` True
+  describe "EchoServer" $
+    it "echos stream data" $
+      do echoAddr <- startEchoServer True
+         echoSuccess echoAddr `shouldReturn` True
 
   describe "Lib" $ do
     it "does not have an addr when disabled" $ do
@@ -37,7 +37,7 @@ main = hspec $ do
       proxyEnabled proxy `shouldBe` False
       echoSuccess echoAddr `shouldReturn` False
 
-testAddr = (SockAddrInet aNY_PORT localhost)
+testAddr = SockAddrInet aNY_PORT localhost
 
 startEchoServer :: Bool -> IO SockAddr
 startEchoServer acceptOne = do
