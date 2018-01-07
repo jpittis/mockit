@@ -7,15 +7,35 @@ import Test.Hspec
 import Network.Socket.ByteString
 import Network.Socket hiding (send, recv)
 
-import Control.Concurrent (forkFinally, threadDelay)
-import Control.Concurrent.MVar (putMVar, newEmptyMVar, readMVar)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async (async, race)
 
 import qualified Data.ByteString as BS
 import Control.Monad (when)
 
-import Control.Concurrent.Async (async, cancel, wait, race)
+main :: IO ()
+main = hspec $ do
+  describe "EchoServer" $ do
+    it "echos stream data" $ do
+      echoAddr <- startEchoServer True
+      echoSuccess echoAddr `shouldReturn` True
 
-import Control.Exception (catch, SomeException)
+  describe "Lib" $ do
+    it "does not have an addr when disabled" $ do
+      let proxy = proxyFromConfig (Nothing, testAddr)
+      proxyEnabled proxy `shouldBe` False
+      proxyAddr proxy `shouldBe` Nothing
+
+    it "proxies between two connections when enabled" $ do
+      echoAddr <- startEchoServer True
+      let proxy = proxyFromConfig (Nothing, echoAddr)
+      proxy <- enableProxy proxy
+      proxyEnabled proxy `shouldBe` True
+      let Just addr = proxyAddr proxy
+      echoSuccess echoAddr `shouldReturn` True
+      proxy <- disableProxy proxy
+      proxyEnabled proxy `shouldBe` False
+      echoSuccess echoAddr `shouldReturn` False
 
 testAddr = (SockAddrInet aNY_PORT localhost)
 
@@ -61,27 +81,3 @@ timeoutAfter millisec action onTimeout = do
     delayReturn = do
       threadDelay (millisec * 1000)
       onTimeout
-
-main :: IO ()
-main = hspec $ do
-  describe "EchoServer" $ do
-    it "echos stream data" $ do
-      echoAddr <- startEchoServer True
-      echoSuccess echoAddr `shouldReturn` True
-
-  describe "Lib" $ do
-    it "does not have an addr when disabled" $ do
-      let proxy = proxyFromConfig (Nothing, testAddr)
-      proxyEnabled proxy `shouldBe` False
-      proxyAddr proxy `shouldBe` Nothing
-
-    it "proxies between two connections when enabled" $ do
-      echoAddr <- startEchoServer True
-      let proxy = proxyFromConfig (Nothing, echoAddr)
-      proxy <- enableProxy proxy
-      proxyEnabled proxy `shouldBe` True
-      let Just addr = proxyAddr proxy
-      echoSuccess echoAddr `shouldReturn` True
-      proxy <- disableProxy proxy
-      proxyEnabled proxy `shouldBe` False
-      echoSuccess echoAddr `shouldReturn` False
