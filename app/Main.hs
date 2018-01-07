@@ -12,11 +12,24 @@ import Text.Read(readMaybe)
 import Control.Monad (when)
 
 -- TODO
--- ----
+-- ---
 -- - Accept buffer and 3 way handshake timeouts.
 -- - Latency.
 -- - Blackhole.
 -- - Provide an listen port if not privded.
+
+-- Suggestions from Zen
+-- ---
+-- Consider replacing Proxy and ProxyState with records to provide better
+-- documentation.
+-- Run everything through hlint.
+-- Read about error handing here:
+-- https://hackage.haskell.org/package/managed-1.0.5/docs/Control-Monad-Managed.html
+-- This is the standard logger:
+-- https://hackage.haskell.org/package/fast-logger
+-- Look into deriving (ToJson)
+-- Check out the withX pattern. A function to run with the proxy enabled.
+-- Also, learn about Functor, Applicative, Monad and MTL.
 
 usage = "usage: proxy <from-port> <to-port>"
 
