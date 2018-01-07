@@ -36,7 +36,7 @@ listenLoop server toAddr = do
   async $ proxyConnection conn toAddr
   listenLoop server toAddr
 
-type Config = (Maybe SockAddr, SockAddr) -- TODO consider not exposing this
+type Config = (Maybe SockAddr, SockAddr)
 
 data Proxy = Proxy (Config, ProxyState)
 data ProxyState =

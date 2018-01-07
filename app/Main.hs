@@ -13,12 +13,9 @@ import Control.Monad (when)
 
 -- TODO
 -- ----
--- - Need a way to turn proxy on and off.
 -- - Accept buffer and 3 way handshake timeouts.
--- - Latency sounds possible and easy.
--- - Blackhole... is actually soooo sketchy but probably easy.
--- - Don't just transmit on newline.
--- - Write some tests.
+-- - Latency.
+-- - Blackhole.
 -- - Provide an listen port if not privded.
 
 usage = "usage: proxy <from-port> <to-port>"
