@@ -24,14 +24,14 @@ main = hspec $ do
     it "does not have an addr when disabled" $ do
       let proxy = proxyFromConfig (Config Nothing testAddr)
       proxyEnabled proxy `shouldBe` False
-      proxyAddr proxy `shouldBe` Nothing
+      proxyAddr proxy `shouldReturn` Nothing
 
     it "proxies between two connections when enabled" $ do
       echoAddr <- startEchoServer True
       let proxy = proxyFromConfig (Config Nothing echoAddr)
       proxy <- enableProxy proxy
       proxyEnabled proxy `shouldBe` True
-      let Just addr = proxyAddr proxy
+      Just addr <- proxyAddr proxy
       echoSuccess echoAddr `shouldReturn` True
       proxy <- disableProxy proxy
       proxyEnabled proxy `shouldBe` False
