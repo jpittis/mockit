@@ -19,13 +19,13 @@ import Data.IORef
 main :: IO ()
 main = hspec $ do
   describe "EchoServer" $
-    it "echos stream data" $
-      do echoAddr <- startEchoServer 2
-         echoSuccess echoAddr `shouldReturn` True
-         echoSuccess echoAddr `shouldReturn` True
-         echoSuccess echoAddr `shouldReturn` False
+    it "echos stream data" $ do
+      echoAddr <- startEchoServer 2
+      echoSuccess echoAddr `shouldReturn` True
+      echoSuccess echoAddr `shouldReturn` True
+      echoSuccess echoAddr `shouldReturn` False
 
-  describe "Lib" $ do
+  describe "Proxy" $ do
     it "is not listening when disabled" $ do
       config <- uniqueConfig
       let proxy = proxyFromConfig config
@@ -52,6 +52,13 @@ main = hspec $ do
       proxyEnabled proxy `shouldBe` True
       let addr = proxyAddr proxy
       echoSuccess listenAddr `shouldReturn` False
+
+  describe "Resilient Proxy" $ do
+    it "behaves correctly when upstream is not present" $ False `shouldBe` True
+
+    it "behaves correctly when upstream closes" $ False `shouldBe` True
+
+    it "behaves correctly when downstream closes" $ False `shouldBe` True
 
 -- We use the port range 20,000 and above for testing.
 -- This is the sketchiest thing I've ever done in Haskell.
