@@ -5,6 +5,7 @@ module Lib
     , proxyAddr
     , enableProxy
     , disableProxy
+    , timeoutProxy
     , proxyEnabled
     , localhost
     ) where
@@ -37,7 +38,7 @@ listenLoop server toAddr = do
   listenLoop server toAddr
 
 data Config = Config {
-    listenAddr   :: Maybe SockAddr
+    listenAddr   :: SockAddr
   , upstreamAddr :: SockAddr
 }
 
@@ -48,17 +49,17 @@ data Proxy = Proxy {
 
 data ProxyState =
     Disabled
-  | Enabled { server :: Socket }
+  | Enabled Socket
+  | Timeout Socket
 
 proxyFromConfig :: Config -> Proxy
 proxyFromConfig config = Proxy config Disabled
 
 enableProxy :: Proxy -> IO Proxy
 enableProxy proxy@(Proxy _ (Enabled _)) = return proxy
+enableProxy proxy@(Proxy _ (Timeout _)) = disableProxy proxy >>= enableProxy
 enableProxy (Proxy config@(Config listenAddr upstreamAddr) Disabled) = do
-  server <- socket AF_INET Stream 0
-  bind server $ fromMaybe (SockAddrInet aNY_PORT localhost) listenAddr
-  listen server 1
+  server <- listenOn listenAddr
   async $ listenLoop server upstreamAddr
   return $ Proxy config (Enabled server)
 
@@ -66,11 +67,27 @@ disableProxy :: Proxy -> IO Proxy
 disableProxy proxy@(Proxy _ Disabled) = return proxy
 disableProxy (Proxy config (Enabled server)) = do
   close server
-  return $ Proxy config Disabled
+  return (Proxy config Disabled)
+disableProxy (Proxy config (Timeout server)) = do
+  close server
+  return (Proxy config Disabled)
 
-proxyAddr :: Proxy -> IO (Maybe SockAddr)
-proxyAddr (Proxy _ (Enabled server)) = Just <$> getSocketName server
-proxyAddr _ = return Nothing
+timeoutProxy :: Proxy -> IO Proxy
+timeoutProxy proxy@(Proxy _ (Timeout _)) = return proxy
+timeoutProxy proxy@(Proxy _ (Enabled _)) = disableProxy proxy >>= timeoutProxy
+timeoutProxy proxy@(Proxy config@(Config listenAddr _) Disabled) = do
+  server <- listenOn listenAddr
+  return $ Proxy config (Enabled server)
+
+listenOn :: SockAddr -> IO Socket
+listenOn listenAddr = do
+  server <- socket AF_INET Stream 0
+  bind server listenAddr
+  listen server 1
+  return server
+
+proxyAddr :: Proxy -> SockAddr
+proxyAddr (Proxy (Config listenAddr _) _) = listenAddr
 
 proxyEnabled :: Proxy -> Bool
 proxyEnabled (Proxy _ (Enabled _)) = True

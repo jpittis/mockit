@@ -11,48 +11,78 @@ import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (async, race)
 
 import qualified Data.ByteString as BS
-import Control.Monad (when)
+import Control.Monad (replicateM_)
+
+import System.IO.Unsafe (unsafePerformIO)
+import Data.IORef
 
 main :: IO ()
 main = hspec $ do
   describe "EchoServer" $
     it "echos stream data" $
-      do echoAddr <- startEchoServer True
+      do echoAddr <- startEchoServer 2
          echoSuccess echoAddr `shouldReturn` True
+         echoSuccess echoAddr `shouldReturn` True
+         echoSuccess echoAddr `shouldReturn` False
 
   describe "Lib" $ do
-    it "does not have an addr when disabled" $ do
-      let proxy = proxyFromConfig (Config Nothing testAddr)
+    it "is not listening when disabled" $ do
+      config <- uniqueConfig
+      let proxy = proxyFromConfig config
       proxyEnabled proxy `shouldBe` False
-      proxyAddr proxy `shouldReturn` Nothing
+      let listenAddr = proxyAddr proxy
+      echoSuccess listenAddr `shouldThrow` anyException
 
-    it "proxies between two connections when enabled" $ do
-      echoAddr <- startEchoServer True
-      let proxy = proxyFromConfig (Config Nothing echoAddr)
+    it "proxies when enabled and stops listening when disabled" $ do
+      echoAddr <- startEchoServer 2
+      listenAddr <- newTestAddr
+      let proxy = proxyFromConfig (Config listenAddr echoAddr)
       proxy <- enableProxy proxy
       proxyEnabled proxy `shouldBe` True
-      Just addr <- proxyAddr proxy
-      echoSuccess echoAddr `shouldReturn` True
+      echoSuccess listenAddr `shouldReturn` True
       proxy <- disableProxy proxy
       proxyEnabled proxy `shouldBe` False
-      echoSuccess echoAddr `shouldReturn` False
+      echoSuccess listenAddr `shouldThrow` anyException
 
-testAddr = SockAddrInet aNY_PORT localhost
+    it "causes timeouts when not accepting" $ do
+      echoAddr <- startEchoServer 1
+      listenAddr <- newTestAddr
+      let proxy = proxyFromConfig (Config listenAddr echoAddr)
+      proxy <- timeoutProxy proxy
+      proxyEnabled proxy `shouldBe` True
+      let addr = proxyAddr proxy
+      echoSuccess listenAddr `shouldReturn` False
 
-startEchoServer :: Bool -> IO SockAddr
-startEchoServer acceptOne = do
+-- We use the port range 20,000 and above for testing.
+-- This is the sketchiest thing I've ever done in Haskell.
+-- Mostly to spite Xavier.
+testPortID :: IORef PortNumber
+{-# NOINLINE testPortID #-}
+testPortID = unsafePerformIO (newIORef 20000)
+newTestAddr :: IO SockAddr
+newTestAddr = do
+  port <- readIORef testPortID
+  modifyIORef testPortID (+1)
+  return $ SockAddrInet port localhost
+
+uniqueConfig :: IO Config
+uniqueConfig = do
+  listenAddr <- newTestAddr
+  upstreamAddr <- newTestAddr
+  return $ Config listenAddr upstreamAddr
+
+startEchoServer :: Int -> IO SockAddr
+startEchoServer numAccepts = do
   server <- socket AF_INET Stream 0
-  bind server testAddr
+  listenAddr <- newTestAddr
+  bind server listenAddr
   listen server 1
-  if acceptOne then
-    async $ acceptOneRequest server
-  else
-    async $ return ()
+  async $ replicateM_ numAccepts (acceptOneRequest server)
   getSocketName server
   where
     acceptOneRequest server = do
       (conn, _) <- accept server
-      echoLoop conn
+      async $ echoLoop conn
     echoLoop conn = do
       content <- recv conn 1028
       send conn content
@@ -60,15 +90,30 @@ startEchoServer acceptOne = do
 
 attemptEcho :: SockAddr -> BS.ByteString -> IO BS.ByteString
 attemptEcho addr msg = do
+  client <- attemptSend addr msg
+  recv client 1028
+
+attemptSend :: SockAddr -> BS.ByteString -> IO Socket
+attemptSend addr msg = do
   client <- socket AF_INET Stream 0
   connect client addr
   send client msg
-  recv client 1028
+  return client
+
+sendSuccess :: SockAddr -> IO Bool
+sendSuccess addr = do
+  let msg = "foobar" :: BS.ByteString
+  timeoutAfter 100 (attemptSendSuccess msg) (return False)
+  where
+    attemptSendSuccess msg = do
+      client <- attemptSend addr msg
+      close client
+      return True
 
 echoSuccess :: SockAddr -> IO Bool
 echoSuccess addr = do
   let msg = "foobar" :: BS.ByteString
-  resp <- timeoutAfter 10 (attemptEcho addr msg) (return "")
+  resp <- timeoutAfter 100 (attemptEcho addr msg) (return "")
   return (msg == resp)
 
 -- timeoutAfter returns the result of onTimeout if action does not return
