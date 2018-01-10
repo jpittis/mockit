@@ -55,6 +55,7 @@ data ProxyState =
 proxyFromConfig :: Config -> Proxy
 proxyFromConfig config = Proxy config Disabled
 
+-- An Enabled proxy passes stream data between the upstream and downstream.
 enableProxy :: Proxy -> IO Proxy
 enableProxy proxy@(Proxy _ (Enabled _)) = return proxy
 enableProxy proxy@(Proxy _ (Timeout _)) = disableProxy proxy >>= enableProxy
@@ -63,6 +64,8 @@ enableProxy (Proxy config@(Config listenAddr upstreamAddr) Disabled) = do
   async $ listenLoop server upstreamAddr
   return $ Proxy config (Enabled server)
 
+-- A Disabled proxy is not listening on the listenPort. Attempts to connect to
+-- the listenPort will be rejected.
 disableProxy :: Proxy -> IO Proxy
 disableProxy proxy@(Proxy _ Disabled) = return proxy
 disableProxy (Proxy config (Enabled server)) = do
@@ -72,6 +75,8 @@ disableProxy (Proxy config (Timeout server)) = do
   close server
   return (Proxy config Disabled)
 
+-- A Timeout proxy is listen on it's listen port but is not accepting
+-- connections. Any data sent will never reach the upstream.
 timeoutProxy :: Proxy -> IO Proxy
 timeoutProxy proxy@(Proxy _ (Timeout _)) = return proxy
 timeoutProxy proxy@(Proxy _ (Enabled _)) = disableProxy proxy >>= timeoutProxy
