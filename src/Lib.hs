@@ -14,28 +14,37 @@ import Network.Socket.ByteString
 import Network.Socket hiding (send, recv)
 import Control.Monad (forever)
 import Data.Maybe (fromMaybe)
-import Control.Concurrent.Async (async)
+import Control.Concurrent.Async (async, withAsync, concurrently)
+
+import Control.Exception (catch, IOException)
 
 localhost = tupleToHostAddress (127, 0, 0, 1)
 
-proxySocket :: Socket -> Socket -> IO ()
-proxySocket from to =
+-- TODO: forwardStream does not do any error handling
+forwardStream :: Socket -> Socket -> IO ()
+forwardStream from to =
   forever $
     do content <- recv from 4096
        send to content
 
+-- proxyConnection takes an open connection and an upstream address. It opens a
+-- second connection to the upstream address and forwards stream data between
+-- the two connections.
 proxyConnection :: Socket -> SockAddr -> IO ()
-proxyConnection conn toAddr = do
+proxyConnection downstream upstreamAddr = do
   upstream <- socket AF_INET Stream 0
-  connect upstream toAddr
-  async $ proxySocket conn upstream
-  proxySocket upstream conn
+  connect upstream upstreamAddr
+  -- TODO: Either of these failing will cause them both to exit and return.
+  -- Will the sockets get closed automaticly when that happens?
+  _ <- concurrently (forwardStream downstream upstream)
+                    (forwardStream upstream downstream)
+  return ()
 
 listenLoop :: Socket -> SockAddr -> IO ()
-listenLoop server toAddr = do
-  (conn, _) <- accept server
-  async $ proxyConnection conn toAddr
-  listenLoop server toAddr
+listenLoop server upstreamAddr = do
+  (downstream, _) <- accept server
+  withAsync (proxyConnection downstream upstreamAddr) $ \_ ->
+    listenLoop server upstreamAddr
 
 data Config = Config {
     listenAddr   :: SockAddr
@@ -61,7 +70,8 @@ enableProxy proxy@(Proxy _ (Enabled _)) = return proxy
 enableProxy proxy@(Proxy _ (Timeout _)) = disableProxy proxy >>= enableProxy
 enableProxy (Proxy config@(Config listenAddr upstreamAddr) Disabled) = do
   server <- listenOn listenAddr
-  async $ listenLoop server upstreamAddr
+  -- TODO: ignore the thread handle for now.
+  _ <- async $ listenLoop server upstreamAddr
   return $ Proxy config (Enabled server)
 
 -- A Disabled proxy is not listening on the listenPort. Attempts to connect to
