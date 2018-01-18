@@ -8,6 +8,7 @@ module Lib
     , timeoutProxy
     , proxyEnabled
     , localhost
+    , proxyConnection
     ) where
 
 import Network.Socket.ByteString
@@ -16,11 +17,10 @@ import Control.Monad (forever)
 import Data.Maybe (fromMaybe)
 import Control.Concurrent.Async (async, withAsync, concurrently)
 
-import Control.Exception (catch, IOException)
+import Control.Exception (finally)
 
 localhost = tupleToHostAddress (127, 0, 0, 1)
 
--- TODO: forwardStream does not do any error handling
 forwardStream :: Socket -> Socket -> IO ()
 forwardStream from to =
   forever $
@@ -31,14 +31,15 @@ forwardStream from to =
 -- second connection to the upstream address and forwards stream data between
 -- the two connections.
 proxyConnection :: Socket -> SockAddr -> IO ()
-proxyConnection downstream upstreamAddr = do
-  upstream <- socket AF_INET Stream 0
-  connect upstream upstreamAddr
-  -- TODO: Either of these failing will cause them both to exit and return.
-  -- Will the sockets get closed automaticly when that happens?
-  _ <- concurrently (forwardStream downstream upstream)
-                    (forwardStream upstream downstream)
-  return ()
+proxyConnection down upstreamAddr = do
+  up <- socket AF_INET Stream 0
+  connect up upstreamAddr
+  forward up down `finally` close up >> close down
+  where
+    forward up down = do
+      concurrently (forwardStream down up)
+                   (forwardStream up down)
+      return ()
 
 listenLoop :: Socket -> SockAddr -> IO ()
 listenLoop server upstreamAddr = do
