@@ -10,10 +10,12 @@ import Network.Socket.ByteString
 import Network.Socket hiding (send, recv)
 
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (async, race)
+import Control.Concurrent.Async (async, race, withAsync, wait)
 
 import qualified Data.ByteString as BS
 import Control.Monad (replicateM_)
+
+import System.IO.Error (catchIOError)
 
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef
@@ -56,26 +58,41 @@ spec = do
       startEchoServer upstreamAddr 3
       let proxy = proxyFromConfig config
       proxy <- enableProxy proxy
-      client1 <- createClient listenAddr
-      client2 <- createClient listenAddr
-      client3 <- createClient listenAddr
+      client1 <- connectTo listenAddr
+      client2 <- connectTo listenAddr
+      client3 <- connectTo listenAddr
       attemptEcho client1 "1" `shouldReturn` "1"
       attemptEcho client2 "2" `shouldReturn` "2"
       attemptEcho client3 "3" `shouldReturn` "3"
 
-  describe "Resilient Proxy" $
+  describe "Resilient Proxy" $ do
     it "behaves correctly when upstream is not present" $ do
-      config@(Config listenAddr upstreamAddr) <- uniqueConfig
-      let proxy = proxyFromConfig config
-      proxy <- enableProxy proxy
+      (listenAddr, upstreamAddr, proxy) <- createEnabledProxy
       echoSuccess listenAddr `shouldReturn` False
       startEchoServer upstreamAddr 1
       echoSuccess listenAddr `shouldReturn` True
       echoSuccess listenAddr `shouldReturn` False
 
-    -- it "behaves correctly when upstream closes" $ do
+    it "cleans up correctly when upstream closes" $
+      ensureCleansUpAfter $ \client server proxy ->
+        close server
 
-    -- it "behaves correctly when downstream closes" $ do
+    it "cleans up correctly when client closes" $
+      ensureCleansUpAfter $ \client server proxy ->
+        close client
+
+    it "cleans up correctly when proxy is disabled" $
+      ensureCleansUpAfter $ \client server proxy ->
+        close client
+
+ensureCleansUpAfter :: (Socket -> Socket -> Proxy -> IO ()) -> IO ()
+ensureCleansUpAfter f = do
+  (client, server, proxy) <- proxySocketPair
+  canProxy client server `shouldReturn` True
+  canProxy server client `shouldReturn` True
+  f client server proxy
+  canProxy client server `shouldReturn` False
+  canProxy server client `shouldReturn` False
 
 -- We use the port range 20,000 and above for testing.
 -- This is the sketchiest thing I've ever done in Haskell.
@@ -118,8 +135,8 @@ attemptEcho client msg = do
   send client msg
   recv client 1028
 
-createClient :: SockAddr -> IO Socket
-createClient addr = do
+connectTo :: SockAddr -> IO Socket
+connectTo addr = do
   client <- socket AF_INET Stream 0
   connect client addr
   return client
@@ -130,7 +147,7 @@ sendSuccess addr = do
   timeoutAfter 100 (attemptSendSuccess msg) (return False)
   where
     attemptSendSuccess msg = do
-      client <- createClient addr
+      client <- connectTo addr
       send client msg
       close client
       return True
@@ -138,7 +155,7 @@ sendSuccess addr = do
 echoSuccess :: SockAddr -> IO Bool
 echoSuccess addr = do
   let msg = "foobar" :: BS.ByteString
-  client <- createClient addr
+  client <- connectTo addr
   resp <- timeoutAfter 100 (attemptEcho client msg) (return "")
   return (msg == resp)
 
@@ -150,3 +167,40 @@ timeoutAfter millisec action onTimeout = do
     delayReturn = do
       threadDelay (millisec * 1000)
       onTimeout
+
+canProxy :: Socket -> Socket -> IO Bool
+canProxy from to = catchIOError attemptProxy (\e -> return False)
+  where
+    attemptProxy = do
+      let msg = "send over proxy" :: BS.ByteString
+      send from msg
+      result <- recv to 1024
+      return $ result == msg
+
+proxySocketPair :: IO (Socket, Socket, Proxy)
+proxySocketPair = do
+  (listenAddr, upstreamAddr, proxy) <- createEnabledProxy
+  upstream <- listenOn upstreamAddr
+  withAsync (acceptOne upstream) $ \asyncConn -> do
+    client <- connectTo listenAddr
+    server <- wait asyncConn
+    return (client, server, proxy)
+  where
+    acceptOne :: Socket -> IO Socket
+    acceptOne server = do
+      (client, _) <- accept server
+      close server
+      return client
+    listenOn :: SockAddr -> IO Socket
+    listenOn addr = do
+      server <- socket AF_INET Stream 0
+      bind server addr
+      listen server 1
+      return server
+
+createEnabledProxy :: IO (SockAddr, SockAddr, Proxy)
+createEnabledProxy = do
+  config@(Config listenAddr upstreamAddr) <- uniqueConfig
+  let proxy = proxyFromConfig config
+  proxy <- enableProxy proxy
+  return (listenAddr, upstreamAddr, proxy)
