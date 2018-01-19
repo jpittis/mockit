@@ -22,59 +22,48 @@ spec :: Spec
 spec = do
   describe "EchoServer" $
     it "echos stream data" $ do
-      echoAddr <- startEchoServer 2
+      echoAddr <- newTestAddr
+      startEchoServer echoAddr 2
       echoSuccess echoAddr `shouldReturn` True
       echoSuccess echoAddr `shouldReturn` True
       echoSuccess echoAddr `shouldReturn` False
 
   describe "Proxy" $ do
-    it "is not listening when disabled" $ do
-      config <- uniqueConfig
+    it "disabled proxy does not listen" $ do
+      config@(Config listenAddr _) <- uniqueConfig
       let proxy = proxyFromConfig config
-      proxyEnabled proxy `shouldBe` False
-      let listenAddr = proxyAddr proxy
       echoSuccess listenAddr `shouldThrow` anyException
 
-    it "proxies when enabled and stops listening when disabled" $ do
-      echoAddr <- startEchoServer 2
-      listenAddr <- newTestAddr
-      let proxy = proxyFromConfig (Config listenAddr echoAddr)
+    it "enabled proxy proxies and stops when disabled" $ do
+      config@(Config listenAddr upstreamAddr) <- uniqueConfig
+      startEchoServer upstreamAddr 1
+      let proxy = proxyFromConfig (Config listenAddr upstreamAddr)
       proxy <- enableProxy proxy
-      proxyEnabled proxy `shouldBe` True
       echoSuccess listenAddr `shouldReturn` True
       proxy <- disableProxy proxy
-      proxyEnabled proxy `shouldBe` False
       echoSuccess listenAddr `shouldThrow` anyException
 
-    it "causes timeouts when not accepting" $ do
-      echoAddr <- startEchoServer 1
-      listenAddr <- newTestAddr
-      let proxy = proxyFromConfig (Config listenAddr echoAddr)
+    it "timeout proxy listens but does not accept" $ do
+      config@(Config listenAddr _) <- uniqueConfig
+      let proxy = proxyFromConfig config
       proxy <- timeoutProxy proxy
-      proxyEnabled proxy `shouldBe` True
       echoSuccess listenAddr `shouldReturn` False
+      proxy <- disableProxy proxy
+      echoSuccess listenAddr `shouldThrow` anyException
 
   describe "Resilient Proxy" $
     it "behaves correctly when upstream is not present" $ do
-      config <- uniqueConfig
+      config@(Config listenAddr upstreamAddr) <- uniqueConfig
       let proxy = proxyFromConfig config
       proxy <- enableProxy proxy
-      -- The proxy does not rely on the upstream to be present.
-      proxyEnabled proxy `shouldBe` True
-      let addr = proxyAddr proxy
-      echoSuccess addr `shouldReturn` False
+      echoSuccess listenAddr `shouldReturn` False
+      startEchoServer upstreamAddr 1
+      echoSuccess listenAddr `shouldReturn` True
+      echoSuccess listenAddr `shouldReturn` False
 
     -- it "behaves correctly when upstream closes" $ do
-    --   config <- uniqueConfig
-    --   let proxy = proxyFromConfig config
-    --   proxy <- enableProxy proxy
-    --   proxyEnabled proxy `shouldBe` True
 
     -- it "behaves correctly when downstream closes" $ do
-    --   config <- uniqueConfig
-    --   let proxy = proxyFromConfig config
-    --   proxy <- enableProxy proxy
-    --   proxyEnabled proxy `shouldBe` True
 
 -- We use the port range 20,000 and above for testing.
 -- This is the sketchiest thing I've ever done in Haskell.
@@ -94,14 +83,15 @@ uniqueConfig = do
   upstreamAddr <- newTestAddr
   return $ Config listenAddr upstreamAddr
 
-startEchoServer :: Int -> IO SockAddr
-startEchoServer numAccepts = do
+localhost = tupleToHostAddress (127, 0, 0, 1)
+
+startEchoServer :: SockAddr -> Int -> IO ()
+startEchoServer listenAddr numAccepts = do
   server <- socket AF_INET Stream 0
-  listenAddr <- newTestAddr
   bind server listenAddr
   listen server 1
   async $ replicateM_ numAccepts (acceptOneRequest server)
-  getSocketName server
+  return ()
   where
     acceptOneRequest server = do
       (conn, _) <- accept server
@@ -139,8 +129,6 @@ echoSuccess addr = do
   resp <- timeoutAfter 100 (attemptEcho addr msg) (return "")
   return (msg == resp)
 
--- timeoutAfter returns the result of onTimeout if action does not return
--- within millisec milliseconds.
 timeoutAfter :: Int -> IO a -> IO a -> IO a
 timeoutAfter millisec action onTimeout = do
   result <- race action delayReturn
