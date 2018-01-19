@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module LibSpec (spec) where
+module ProxySpec (spec) where
 
-import Lib
+import Proxy
 
 import Test.Hspec
 

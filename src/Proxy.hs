@@ -1,4 +1,4 @@
-module Lib
+module Proxy
     ( Config (Config)
     , proxyFromConfig
     , Proxy
