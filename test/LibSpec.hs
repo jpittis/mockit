@@ -37,7 +37,7 @@ spec = do
     it "enabled proxy proxies and stops when disabled" $ do
       config@(Config listenAddr upstreamAddr) <- uniqueConfig
       startEchoServer upstreamAddr 1
-      let proxy = proxyFromConfig (Config listenAddr upstreamAddr)
+      let proxy = proxyFromConfig config
       proxy <- enableProxy proxy
       echoSuccess listenAddr `shouldReturn` True
       proxy <- disableProxy proxy
@@ -50,6 +50,18 @@ spec = do
       echoSuccess listenAddr `shouldReturn` False
       proxy <- disableProxy proxy
       echoSuccess listenAddr `shouldThrow` anyException
+
+    it "enabled proxy can accept multiple connections" $ do
+      config@(Config listenAddr upstreamAddr) <- uniqueConfig
+      startEchoServer upstreamAddr 3
+      let proxy = proxyFromConfig config
+      proxy <- enableProxy proxy
+      client1 <- createClient listenAddr
+      client2 <- createClient listenAddr
+      client3 <- createClient listenAddr
+      attemptEcho client1 "1" `shouldReturn` "1"
+      attemptEcho client2 "2" `shouldReturn` "2"
+      attemptEcho client3 "3" `shouldReturn` "3"
 
   describe "Resilient Proxy" $
     it "behaves correctly when upstream is not present" $ do
@@ -101,16 +113,15 @@ startEchoServer listenAddr numAccepts = do
       send conn content
       echoLoop conn
 
-attemptEcho :: SockAddr -> BS.ByteString -> IO BS.ByteString
-attemptEcho addr msg = do
-  client <- attemptSend addr msg
+attemptEcho :: Socket -> BS.ByteString -> IO BS.ByteString
+attemptEcho client msg = do
+  send client msg
   recv client 1028
 
-attemptSend :: SockAddr -> BS.ByteString -> IO Socket
-attemptSend addr msg = do
+createClient :: SockAddr -> IO Socket
+createClient addr = do
   client <- socket AF_INET Stream 0
   connect client addr
-  send client msg
   return client
 
 sendSuccess :: SockAddr -> IO Bool
@@ -119,14 +130,16 @@ sendSuccess addr = do
   timeoutAfter 100 (attemptSendSuccess msg) (return False)
   where
     attemptSendSuccess msg = do
-      client <- attemptSend addr msg
+      client <- createClient addr
+      send client msg
       close client
       return True
 
 echoSuccess :: SockAddr -> IO Bool
 echoSuccess addr = do
   let msg = "foobar" :: BS.ByteString
-  resp <- timeoutAfter 100 (attemptEcho addr msg) (return "")
+  client <- createClient addr
+  resp <- timeoutAfter 100 (attemptEcho client msg) (return "")
   return (msg == resp)
 
 timeoutAfter :: Int -> IO a -> IO a -> IO a

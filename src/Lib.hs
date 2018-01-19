@@ -35,8 +35,6 @@ type ListenHandle = Async ()
 proxyFromConfig :: Config -> Proxy
 proxyFromConfig config = Proxy config Disabled
 
-localhost = tupleToHostAddress (127, 0, 0, 1)
-
 forwardStream :: Socket -> Socket -> IO ()
 forwardStream from to =
   forever $
@@ -53,7 +51,6 @@ proxyConnection down upstreamAddr = do
     forward up down =
       concurrently_ (forwardStream down up) (forwardStream up down)
 
--- TODO make sure listen loop can handle multiple connections
 acceptLoop :: Socket -> SockAddr -> IO ()
 acceptLoop server upstreamAddr = do
   (downstream, _) <- accept server
