@@ -5,22 +5,23 @@ module Http
     ) where
 
 import Api
+import Orchestrator (Orch)
 
 import Web.Scotty
 
-routes :: ScottyM ()
-routes = do
-  get    "/proxies"       listProxiesHandler 
-  post   "/proxies"       createProxyHandler
+routes :: Orch -> ScottyM ()
+routes orch = do
+  get    "/proxies"       listProxiesHandler
+  post   "/proxies"       (createProxyHandler orch)
   get    "/proxies/:name" getProxyHandler
-  delete "/proxies/:name" deleteProxyHandler
+  delete "/proxies/:name" (deleteProxyHandler orch)
   put    "/proxies/:name" updateProxyHandler
 
 listProxiesHandler :: ActionM ()  
 listProxiesHandler = json listProxies
 
-createProxyHandler :: ActionM ()
-createProxyHandler = do
+createProxyHandler :: Orch -> ActionM ()
+createProxyHandler orch = do
   command <- jsonData
   json $ createProxy command
 
@@ -29,8 +30,8 @@ getProxyHandler = do
   command <- jsonData
   json $ getProxy command
 
-deleteProxyHandler :: ActionM ()
-deleteProxyHandler = do
+deleteProxyHandler :: Orch -> ActionM ()
+deleteProxyHandler orch = do
   command <- jsonData
   json $ deleteProxy command
 

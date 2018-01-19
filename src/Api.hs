@@ -1,5 +1,5 @@
-{-# LANGUAGE DeriveGeneric  #-}
-{-# LANGUAGE DeriveAnyClass  #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Api
@@ -8,6 +8,8 @@ module Api
     , getProxy
     , deleteProxy
     , updateProxy
+    , Create
+    , Delete
     ) where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -21,14 +23,21 @@ data State = Disabled | Enabled | Timeout
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Proxy = Proxy {
-    proxyName  :: Text
-  , proxyState :: State
-  , proxyHost  :: HostName
-  , proxyPort  :: Word16
+    proxyName          :: Text
+  , proxyState         :: State
+  , proxyListenHost    :: HostName
+  , proxyListenPort    :: Word16
+  , proxyUpstreamHost  :: HostName
+  , proxyUpstreamPort  :: Word16
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-data Create = Create { createName :: Text, createHost :: HostName, createPort :: Word16 }
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
+data Create = Create {
+    createName         :: Text
+  , createListenHost   :: HostName
+  , createListenPort   :: Word16
+  , createUpstreamHost :: HostName
+  , createUpstreamPort :: Word16
+} deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 newtype Delete = Delete { deleteName :: Text }
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
@@ -49,7 +58,7 @@ listProxies :: Response [Proxy]
 listProxies = success []
 
 createProxy :: Create -> Response ()
-createProxy (Create name host port) = success ()
+createProxy (Create name listenHost listenPort upstreamHost upstreamPort) = success ()
 
 getProxy :: Get -> Response Proxy
 getProxy (Get name) = failure ("foo" :: Text)

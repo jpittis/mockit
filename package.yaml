@@ -22,6 +22,9 @@ dependencies:
 - aeson
 - text
 - scotty
+- mtl
+- transformers
+- containers
 
 library:
   source-dirs: src
