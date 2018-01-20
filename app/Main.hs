@@ -1,11 +1,13 @@
 module Main where
 
 import Orchestrator (startOrchestrator)
-
 import Http
-import Web.Scotty (scotty)
+
+import Web.Scotty.Trans (scottyT)
+import Control.Monad.Trans.Reader (runReaderT)
 
 main :: IO ()
 main = do
   orch <- startOrchestrator
-  scotty 3000 (routes orch)
+  let readerToIO ma = runReaderT ma orch
+  scottyT 3000 readerToIO routes

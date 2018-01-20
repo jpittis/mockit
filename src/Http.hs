@@ -5,37 +5,44 @@ module Http
     ) where
 
 import Api
-import Orchestrator (Orch)
+import Orchestrator
 
-import Web.Scotty
+import Web.Scotty.Trans
+import Data.Text.Lazy
 
-routes :: Orch -> ScottyM ()
-routes orch = do
+import Control.Monad.Trans.Class (lift)
+
+routes :: ScottyT Text OrchReader ()
+routes = do
   get    "/proxies"       listProxiesHandler
-  post   "/proxies"       (createProxyHandler orch)
+  post   "/proxies"       createProxyHandler
   get    "/proxies/:name" getProxyHandler
-  delete "/proxies/:name" (deleteProxyHandler orch)
+  delete "/proxies/:name" deleteProxyHandler
   put    "/proxies/:name" updateProxyHandler
 
-listProxiesHandler :: ActionM ()  
+listProxiesHandler :: ActionT Text OrchReader ()
 listProxiesHandler = json listProxies
 
-createProxyHandler :: Orch -> ActionM ()
-createProxyHandler orch = do
+createProxyHandler :: ActionT Text OrchReader ()
+createProxyHandler = do
   command <- jsonData
-  json $ createProxy command
+  -- Should use pattern matching to create the
+  -- command and extract
+  -- the data from the response.
+  resp <- lift $ runCommand command
+  json resp
 
-getProxyHandler :: ActionM ()
+getProxyHandler :: ActionT Text OrchReader ()
 getProxyHandler = do
   command <- jsonData
   json $ getProxy command
 
-deleteProxyHandler :: Orch -> ActionM ()
-deleteProxyHandler orch = do
+deleteProxyHandler :: ActionT Text OrchReader ()
+deleteProxyHandler = do
   command <- jsonData
   json $ deleteProxy command
 
-updateProxyHandler :: ActionM ()
+updateProxyHandler :: ActionT Text OrchReader ()
 updateProxyHandler = do
   command <- jsonData
   json $ deleteProxy command

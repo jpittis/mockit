@@ -10,6 +10,8 @@ module Api
     , updateProxy
     , Create
     , Delete
+    , Response(..)
+    , Command(..)
     ) where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -30,6 +32,9 @@ data Proxy = Proxy {
   , proxyUpstreamHost  :: HostName
   , proxyUpstreamPort  :: Word16
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
+
+data Command = C Create | D Delete
+  deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Create = Create {
     createName         :: Text

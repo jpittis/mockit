@@ -3,6 +3,8 @@
 module Orchestrator
     ( startOrchestrator
     , Orch
+    , OrchReader
+    , runCommand
     ) where
 
 import qualified Api
@@ -18,15 +20,17 @@ import Control.Concurrent.Async (async, Async)
 
 import Data.Text (Text)
 
+import Control.Monad.Trans.Reader (ReaderT, ask)
+
 data Orch = Orch { orchRequests :: MVar Request , orchHandle :: Async () }
 
-data Request = Request { reqCommand :: Command, reqResponse :: MVar Response }
-type Response = Bool
-
-data Command = Create Api.Create | Delete Api.Delete
+data Request = Request { reqCommand :: Api.Command, reqResponse :: MVar Response }
+type Response = Api.Response Bool
 
 type ProxyMap = Map.Map Text Proxy
 type Proxies a = StateT ProxyMap IO a
+
+type OrchReader = ReaderT Orch IO
 
 startOrchestrator :: IO Orch
 startOrchestrator = do
@@ -41,11 +45,18 @@ startOrchestrator = do
       putMVar resps r
       requestLoop requests state
 
-handleCommand :: Command -> Proxies Response
+runCommand :: Api.Command -> OrchReader Response
+runCommand command = do
+  (Orch requests _) <- ask
+  response <- liftIO newEmptyMVar
+  liftIO $ putMVar requests (Request command response)
+  liftIO $ readMVar response
+
+handleCommand :: Api.Command -> Proxies Response
 handleCommand command =
   case command of
-    Create _ -> return True
-    Delete _ -> return False
+    Api.C _ -> return $ Api.Response (Right True)
+    Api.D _ -> return $ Api.Response (Right False)
 
 createProxy :: Text -> Config -> Proxies ()
 createProxy name config = do
