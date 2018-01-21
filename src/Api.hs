@@ -21,21 +21,19 @@ data State = Disabled | Enabled | Timeout
 data Proxy = Proxy {
     proxyName          :: Text
   , proxyState         :: State
-  , proxyListenHost    :: HostName
+  , proxyListenHost    :: String
   , proxyListenPort    :: Word16
-  , proxyUpstreamHost  :: HostName
+  , proxyUpstreamHost  :: String
   , proxyUpstreamPort  :: Word16
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
--- TODO: These String types are super duper sketch. It was because port and
--- address parsing was easier. This should change.
 data Command =
     Create {
       creatName         :: Text
     , creatListenHost   :: String
-    , creatListenPort   :: String
+    , creatListenPort   :: Word16
     , creatUpstreamHost :: String
-    , creatUpstreamPort :: String
+    , creatUpstreamPort :: Word16
            }
   | Delete { deleteName :: Text }
   | Update { updateName :: Text, updateState :: State }
@@ -43,14 +41,14 @@ data Command =
   | List
   deriving (Show, Eq, Generic, FromJSON)
 
-instance ToJSON Command where
-  toJSON = genericToJSON $ defaultOptions { sumEncoding = UntaggedValue }
-
 data Response =
     SuccessResp Bool
   | ProxyResp Proxy
   | ProxiesResp [Proxy]
   deriving (Show, Eq, Generic, FromJSON)
+
+instance ToJSON Command where
+  toJSON = genericToJSON $ defaultOptions { sumEncoding = UntaggedValue }
 
 instance ToJSON Response where
   toJSON = genericToJSON $ defaultOptions { sumEncoding = UntaggedValue }

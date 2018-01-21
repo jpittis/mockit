@@ -5,7 +5,11 @@ module Proxy
     , enableProxy
     , disableProxy
     , timeoutProxy
+    , proxyConfig
+    , proxyApiState
     ) where
+
+import qualified Api (State(..))
 
 import Network.Socket.ByteString
 import Network.Socket hiding (send, recv)
@@ -34,6 +38,16 @@ type ListenHandle = Async ()
 
 proxyFromConfig :: Config -> Proxy
 proxyFromConfig config = Proxy config Disabled
+
+proxyConfig :: Proxy -> Config
+proxyConfig (Proxy config _) = config
+
+proxyApiState :: Proxy -> Api.State
+proxyApiState (Proxy _ state) =
+  case state of
+    Disabled -> Api.Disabled
+    Enabled _ -> Api.Enabled
+    Timeout _ -> Api.Timeout
 
 forwardStream :: Socket -> Socket -> IO ()
 forwardStream from to =

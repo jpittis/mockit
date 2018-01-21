@@ -1,5 +1,3 @@
--- {-# LANGUAGE OverloadedStrings #-}
-
 module Orchestrator
     ( startOrchestrator
     , OrchReader
@@ -54,74 +52,66 @@ runCommand command = do
 
 handleCommand :: Api.Command -> Proxies Api.Response
 
--- TODO: Right now this always returns True. It should fail if the proxy by
--- that name already exists.
 handleCommand (Api.Create name listenHost listenPort upstreamHost upstreamPort) = do
-  listenAddrHost <- liftIO $ inet_addr listenHost
-  upstreamAddrHost <- liftIO $ inet_addr upstreamHost
-  let listenAddr = SockAddrInet (read listenPort :: PortNumber) listenAddrHost
-  let upstreamAddr = SockAddrInet (read upstreamPort :: PortNumber) upstreamAddrHost
-  createProxy name (Config listenAddr upstreamAddr)
-  return $ Api.SuccessResp True
+  config <- liftIO $ createConfig listenHost listenPort upstreamHost upstreamPort
+  createProxy name config
+  where
+    createProxy name config = do
+      proxies <- get
+      let proxy = proxyFromConfig config
+      proxy <- liftIO $ enableProxy proxy
+      put $ Map.insert name proxy proxies
+      return $ Api.SuccessResp True
+    createConfig listenHost listenPort upstreamHost upstreamPort = do
+      listenAddrHost <- inet_addr listenHost
+      upstreamAddrHost <- inet_addr upstreamHost
+      let listenAddr = SockAddrInet (fromIntegral listenPort) listenAddrHost
+      let upstreamAddr = SockAddrInet (fromIntegral upstreamPort) upstreamAddrHost
+      return $ Config listenAddr upstreamAddr
 
 handleCommand (Api.Delete name) = do
-  deleteProxy name
+  proxies <- get
+  put $ Map.delete name proxies
   return $ Api.SuccessResp True
 
 handleCommand (Api.Update name state) = do
-  success <- updateProxy name state
-  return $ Api.SuccessResp success
+  proxy <- findProxy name
+  case proxy of
+    Just proxy -> updateState proxy
+    Nothing -> return $ Api.SuccessResp False
+  where
+    updateState proxy = do
+      proxy <- liftIO $ update state proxy
+      proxies <- get
+      put $ Map.insert name proxy proxies
+      return $ Api.SuccessResp True
+    update Api.Disabled = disableProxy
+    update Api.Enabled  = enableProxy
+    update Api.Timeout  = timeoutProxy
 
 handleCommand (Api.Get name) = do
   proxy <- findProxy name
   case proxy of
-    Just p -> return $ Api.ProxyResp (proxyToApiProxy (name, p))
+    Just proxy -> do
+      proxy <- liftIO $ proxyToApi (name, proxy)
+      return $ Api.ProxyResp proxy
     Nothing -> return $ Api.SuccessResp False
 
 handleCommand Api.List = do
   proxies <- get
-  return $ Api.ProxiesResp (map proxyToApiProxy (Map.assocs proxies))
-
-proxyToApiProxy :: (Text, Proxy) -> Api.Proxy
-proxyToApiProxy (name, proxy) =
-  let state = Api.Disabled
-      listenHost = "one"
-      listenPort = 33
-      upstreamHost = "three"
-      upstreamPort = 44 in
-  Api.Proxy name state listenHost listenPort upstreamHost upstreamPort
-
-createProxy :: Text -> Config -> Proxies ()
-createProxy name config = do
-  proxies <- get
-  let proxy = proxyFromConfig config 
-  proxy <- liftIO $ enableProxy proxy
-  put $ Map.insert name proxy proxies
-  return ()
-
-deleteProxy :: Text -> Proxies ()
-deleteProxy name = do
-  proxies <- get
-  put $ Map.delete name proxies
-  return ()
-
-updateProxy :: Text -> Api.State -> Proxies Bool
-updateProxy name state = do
-  proxy <- findProxy name
-  let update = case state of
-                 Api.Disabled -> disableProxy
-                 Api.Enabled -> enableProxy
-                 Api.Timeout -> timeoutProxy
-  case proxy of
-    Just p -> do
-      p <- liftIO $ update p
-      proxies <- get
-      put $ Map.insert name p proxies
-      return True
-    Nothing ->
-      return False
+  proxies <- liftIO $ mapM proxyToApi (Map.assocs proxies)
+  return $ Api.ProxiesResp proxies
 
 findProxy :: Text -> Proxies (Maybe Proxy)
 findProxy name = do
   proxies <- get
   return $ Map.lookup name proxies
+
+proxyToApi :: (Text, Proxy) -> IO Api.Proxy
+proxyToApi (name, proxy) = do
+  let (Config listenAddr upstreamAddr) = proxyConfig proxy
+  let (SockAddrInet (PortNum listenPort) listenHostAddr) = listenAddr
+  let (SockAddrInet (PortNum upstreamPort) upstreamHostAddr) = upstreamAddr
+  listenHost <- inet_ntoa listenHostAddr
+  upstreamHost <- inet_ntoa upstreamHostAddr
+  return $ Api.Proxy name (proxyApiState proxy) listenHost listenPort upstreamHost upstreamPort

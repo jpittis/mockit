@@ -4,7 +4,6 @@ module Http
     ( routes
     ) where
 
-import Api
 import Orchestrator
 
 import Web.Scotty.Trans
