@@ -2,7 +2,6 @@
 
 module Orchestrator
     ( startOrchestrator
-    , Orch
     , OrchReader
     , runCommand
     ) where
@@ -21,6 +20,8 @@ import Control.Concurrent.Async (async, Async)
 import Data.Text (Text)
 
 import Control.Monad.Trans.Reader (ReaderT, ask)
+
+import Network.Socket
 
 data Orch = Orch { orchRequests :: MVar Request, orchHandle :: Async () }
 
@@ -52,10 +53,22 @@ runCommand command = do
   liftIO $ readMVar response
 
 handleCommand :: Api.Command -> Proxies Api.Response
-handleCommand command =
-  case command of
-    Api.CreateComm _ -> return $ Api.SuccessResp True
-    Api.DeleteComm _ -> return $ Api.SuccessResp False
+
+localhost = tupleToHostAddress (127, 0, 0, 1)
+
+handleCommand (Api.CreateComm (Api.Create name listenHost listenPort upstreamHost upstreamPort)) = do
+  let listenAddr = SockAddrInet (PortNum listenPort) listenHost
+  let upstreamAddr = SockAddrInet (PortNum upstreamPort) upstreamHost
+  createProxy name (Config listenAddr upstreamAddr)
+  return $ Api.SuccessResp True
+
+handleCommand (Api.DeleteComm (Api.Delete _)) = return $ Api.SuccessResp True
+
+handleCommand (Api.UpdateComm (Api.Update _ _)) = return $ Api.SuccessResp True
+
+handleCommand (Api.GetComm (Api.Get _)) = return $ Api.SuccessResp True
+
+handleCommand Api.ListComm = return $ Api.ProxiesResp []
 
 createProxy :: Text -> Config -> Proxies ()
 createProxy name config = do

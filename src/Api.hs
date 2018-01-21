@@ -1,12 +1,11 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE DeriveAnyClass    #-}
--- {-# LANGUAGE OverloadedStrings #-}
 
 module Api
-    ( Create
-    , Delete
-    , Update
-    , Get
+    ( Create(..)
+    , Delete(..)
+    , Update(..)
+    , Get(..)
     , Response(..)
     , Command(..)
     ) where
@@ -14,7 +13,7 @@ module Api
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics
 
-import Data.Text
+import Data.Text (Text)
 import Data.Word (Word16)
 import Network.Socket (HostName)
 
@@ -38,6 +37,11 @@ data Command =
   | ListComm
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
+data Response =
+    SuccessResp Bool
+  | ProxyResp Proxy
+  | ProxiesResp [Proxy]
+
 data Create = Create {
     createName         :: Text
   , createListenHost   :: HostName
@@ -54,8 +58,3 @@ data Update = Update { changeName :: Text, changeState :: State }
 
 newtype Get = Get { getName :: Text }
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
-
-data Response =
-    SuccessResp Bool
-  | ProxyResp Proxy
-  | ProxiesResp [Proxy]
