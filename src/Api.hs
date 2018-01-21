@@ -1,15 +1,12 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE OverloadedStrings #-}
 
 module Api
-    ( listProxies
-    , createProxy
-    , getProxy
-    , deleteProxy
-    , updateProxy
-    , Create
+    ( Create
     , Delete
+    , Update
+    , Get
     , Response(..)
     , Command(..)
     ) where
@@ -33,7 +30,12 @@ data Proxy = Proxy {
   , proxyUpstreamPort  :: Word16
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-data Command = C Create | D Delete
+data Command =
+    CreateComm Create
+  | DeleteComm Delete
+  | UpdateComm Update
+  | GetComm    Get
+  | ListComm
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Create = Create {
@@ -53,23 +55,7 @@ data Update = Update { changeName :: Text, changeState :: State }
 newtype Get = Get { getName :: Text }
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-newtype Response a = Response (Either Text a)
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
-
-success val = Response (Right val)
-failure msg = Response (Left msg)
-
-listProxies :: Response [Proxy]
-listProxies = success []
-
-createProxy :: Create -> Response ()
-createProxy (Create name listenHost listenPort upstreamHost upstreamPort) = success ()
-
-getProxy :: Get -> Response Proxy
-getProxy (Get name) = failure ("foo" :: Text)
-
-deleteProxy :: Delete -> Response ()
-deleteProxy (Delete name) = success ()
-
-updateProxy :: Update -> Response ()
-updateProxy (Update name state) = success ()
+data Response =
+    SuccessResp Bool
+  | ProxyResp Proxy
+  | ProxiesResp [Proxy]

@@ -21,28 +21,30 @@ routes = do
   put    "/proxies/:name" updateProxyHandler
 
 listProxiesHandler :: ActionT Text OrchReader ()
-listProxiesHandler = json listProxies
+listProxiesHandler = do
+  (ProxiesResp proxies) <- lift $ runCommand ListComm
+  json proxies 
 
 createProxyHandler :: ActionT Text OrchReader ()
 createProxyHandler = do
-  command <- jsonData
-  -- Should use pattern matching to create the
-  -- command and extract
-  -- the data from the response.
-  resp <- lift $ runCommand command
-  json resp
+  create <- jsonData
+  (SuccessResp success) <- lift $ runCommand (CreateComm create)
+  json success
 
 getProxyHandler :: ActionT Text OrchReader ()
 getProxyHandler = do
-  command <- jsonData
-  json $ getProxy command
+  get <- jsonData
+  (ProxyResp proxy) <- lift $ runCommand (GetComm get)
+  json proxy
 
 deleteProxyHandler :: ActionT Text OrchReader ()
 deleteProxyHandler = do
-  command <- jsonData
-  json $ deleteProxy command
+  delete <- jsonData
+  (SuccessResp success) <- lift $ runCommand (DeleteComm delete)
+  json success
 
 updateProxyHandler :: ActionT Text OrchReader ()
 updateProxyHandler = do
-  command <- jsonData
-  json $ deleteProxy command
+  update <- jsonData
+  (SuccessResp success) <- lift $ runCommand (UpdateComm update)
+  json success

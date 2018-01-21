@@ -22,10 +22,9 @@ import Data.Text (Text)
 
 import Control.Monad.Trans.Reader (ReaderT, ask)
 
-data Orch = Orch { orchRequests :: MVar Request , orchHandle :: Async () }
+data Orch = Orch { orchRequests :: MVar Request, orchHandle :: Async () }
 
-data Request = Request { reqCommand :: Api.Command, reqResponse :: MVar Response }
-type Response = Api.Response Bool
+data Request = Request { reqCommand :: Api.Command, reqResponse :: MVar Api.Response }
 
 type ProxyMap = Map.Map Text Proxy
 type Proxies a = StateT ProxyMap IO a
@@ -45,18 +44,18 @@ startOrchestrator = do
       putMVar resps r
       requestLoop requests state
 
-runCommand :: Api.Command -> OrchReader Response
+runCommand :: Api.Command -> OrchReader Api.Response
 runCommand command = do
   (Orch requests _) <- ask
   response <- liftIO newEmptyMVar
   liftIO $ putMVar requests (Request command response)
   liftIO $ readMVar response
 
-handleCommand :: Api.Command -> Proxies Response
+handleCommand :: Api.Command -> Proxies Api.Response
 handleCommand command =
   case command of
-    Api.C _ -> return $ Api.Response (Right True)
-    Api.D _ -> return $ Api.Response (Right False)
+    Api.CreateComm _ -> return $ Api.SuccessResp True
+    Api.DeleteComm _ -> return $ Api.SuccessResp False
 
 createProxy :: Text -> Config -> Proxies ()
 createProxy name config = do
