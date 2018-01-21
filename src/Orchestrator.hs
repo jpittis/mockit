@@ -54,21 +54,42 @@ runCommand command = do
 
 handleCommand :: Api.Command -> Proxies Api.Response
 
-localhost = tupleToHostAddress (127, 0, 0, 1)
-
+-- TODO: Right now this always returns True. It should fail if the proxy by
+-- that name already exists.
 handleCommand (Api.CreateComm (Api.Create name listenHost listenPort upstreamHost upstreamPort)) = do
-  let listenAddr = SockAddrInet (PortNum listenPort) listenHost
-  let upstreamAddr = SockAddrInet (PortNum upstreamPort) upstreamHost
+  listenAddrHost <- liftIO $ inet_addr listenHost
+  upstreamAddrHost <- liftIO $ inet_addr upstreamHost
+  let listenAddr = SockAddrInet (read listenPort :: PortNumber) listenAddrHost
+  let upstreamAddr = SockAddrInet (read upstreamPort :: PortNumber) upstreamAddrHost
   createProxy name (Config listenAddr upstreamAddr)
   return $ Api.SuccessResp True
 
-handleCommand (Api.DeleteComm (Api.Delete _)) = return $ Api.SuccessResp True
+handleCommand (Api.DeleteComm (Api.Delete name)) = do
+  deleteProxy name
+  return $ Api.SuccessResp True
 
-handleCommand (Api.UpdateComm (Api.Update _ _)) = return $ Api.SuccessResp True
+handleCommand (Api.UpdateComm (Api.Update name state)) = do
+  success <- updateProxy name state
+  return $ Api.SuccessResp success
 
-handleCommand (Api.GetComm (Api.Get _)) = return $ Api.SuccessResp True
+handleCommand (Api.GetComm (Api.Get name)) = do
+  proxy <- findProxy name
+  case proxy of
+    Just p -> return $ Api.ProxyResp (proxyToApiProxy (name, p))
+    Nothing -> return $ Api.SuccessResp False
 
-handleCommand Api.ListComm = return $ Api.ProxiesResp []
+handleCommand Api.ListComm = do
+  proxies <- get
+  return $ Api.ProxiesResp (map proxyToApiProxy (Map.assocs proxies))
+
+proxyToApiProxy :: (Text, Proxy) -> Api.Proxy
+proxyToApiProxy (name, proxy) =
+  let state = Api.Disabled
+      listenHost = "one"
+      listenPort = 33
+      upstreamHost = "three"
+      upstreamPort = 44 in
+  Api.Proxy name state listenHost listenPort upstreamHost upstreamPort
 
 createProxy :: Text -> Config -> Proxies ()
 createProxy name config = do
@@ -77,3 +98,30 @@ createProxy name config = do
   proxy <- liftIO $ enableProxy proxy
   put $ Map.insert name proxy proxies
   return ()
+
+deleteProxy :: Text -> Proxies ()
+deleteProxy name = do
+  proxies <- get
+  put $ Map.delete name proxies
+  return ()
+
+updateProxy :: Text -> Api.State -> Proxies Bool
+updateProxy name state = do
+  proxy <- findProxy name
+  let update = case state of
+                 Api.Disabled -> disableProxy
+                 Api.Enabled -> enableProxy
+                 Api.Timeout -> timeoutProxy
+  case proxy of
+    Just p -> do
+      p <- liftIO $ update p
+      proxies <- get
+      put $ Map.insert name p proxies
+      return True
+    Nothing ->
+      return False
+
+findProxy :: Text -> Proxies (Maybe Proxy)
+findProxy name = do
+  proxies <- get
+  return $ Map.lookup name proxies

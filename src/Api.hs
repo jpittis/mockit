@@ -8,6 +8,8 @@ module Api
     , Get(..)
     , Response(..)
     , Command(..)
+    , State(..)
+    , Proxy(..)
     ) where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -42,12 +44,14 @@ data Response =
   | ProxyResp Proxy
   | ProxiesResp [Proxy]
 
+-- TODO: These String types are super duper sketch. It was because port and
+-- address parsing was easier. This should change.
 data Create = Create {
     createName         :: Text
-  , createListenHost   :: HostName
-  , createListenPort   :: Word16
-  , createUpstreamHost :: HostName
-  , createUpstreamPort :: Word16
+  , createListenHost   :: String
+  , createListenPort   :: String
+  , createUpstreamHost :: String
+  , createUpstreamPort :: String
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 newtype Delete = Delete { deleteName :: Text }
