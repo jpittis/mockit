@@ -2,17 +2,13 @@
 {-# LANGUAGE DeriveAnyClass    #-}
 
 module Api
-    ( Create(..)
-    , Delete(..)
-    , Update(..)
-    , Get(..)
+    ( Command(..)
     , Response(..)
-    , Command(..)
     , State(..)
     , Proxy(..)
     ) where
 
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson
 import GHC.Generics
 
 import Data.Text (Text)
@@ -31,34 +27,30 @@ data Proxy = Proxy {
   , proxyUpstreamPort  :: Word16
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
+-- TODO: These String types are super duper sketch. It was because port and
+-- address parsing was easier. This should change.
 data Command =
-    CreateComm Create
-  | DeleteComm Delete
-  | UpdateComm Update
-  | GetComm    Get
-  | ListComm
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
+    Create {
+      creatName         :: Text
+    , creatListenHost   :: String
+    , creatListenPort   :: String
+    , creatUpstreamHost :: String
+    , creatUpstreamPort :: String
+           }
+  | Delete { deleteName :: Text }
+  | Update { updateName :: Text, updateState :: State }
+  | Get    { getName :: Text }
+  | List
+  deriving (Show, Eq, Generic, FromJSON)
+
+instance ToJSON Command where
+  toJSON = genericToJSON $ defaultOptions { sumEncoding = UntaggedValue }
 
 data Response =
     SuccessResp Bool
   | ProxyResp Proxy
   | ProxiesResp [Proxy]
+  deriving (Show, Eq, Generic, FromJSON)
 
--- TODO: These String types are super duper sketch. It was because port and
--- address parsing was easier. This should change.
-data Create = Create {
-    createName         :: Text
-  , createListenHost   :: String
-  , createListenPort   :: String
-  , createUpstreamHost :: String
-  , createUpstreamPort :: String
-} deriving (Show, Eq, Generic, ToJSON, FromJSON)
-
-newtype Delete = Delete { deleteName :: Text }
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
-
-data Update = Update { changeName :: Text, changeState :: State }
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
-
-newtype Get = Get { getName :: Text }
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
+instance ToJSON Response where
+  toJSON = genericToJSON $ defaultOptions { sumEncoding = UntaggedValue }

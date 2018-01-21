@@ -56,7 +56,7 @@ handleCommand :: Api.Command -> Proxies Api.Response
 
 -- TODO: Right now this always returns True. It should fail if the proxy by
 -- that name already exists.
-handleCommand (Api.CreateComm (Api.Create name listenHost listenPort upstreamHost upstreamPort)) = do
+handleCommand (Api.Create name listenHost listenPort upstreamHost upstreamPort) = do
   listenAddrHost <- liftIO $ inet_addr listenHost
   upstreamAddrHost <- liftIO $ inet_addr upstreamHost
   let listenAddr = SockAddrInet (read listenPort :: PortNumber) listenAddrHost
@@ -64,21 +64,21 @@ handleCommand (Api.CreateComm (Api.Create name listenHost listenPort upstreamHos
   createProxy name (Config listenAddr upstreamAddr)
   return $ Api.SuccessResp True
 
-handleCommand (Api.DeleteComm (Api.Delete name)) = do
+handleCommand (Api.Delete name) = do
   deleteProxy name
   return $ Api.SuccessResp True
 
-handleCommand (Api.UpdateComm (Api.Update name state)) = do
+handleCommand (Api.Update name state) = do
   success <- updateProxy name state
   return $ Api.SuccessResp success
 
-handleCommand (Api.GetComm (Api.Get name)) = do
+handleCommand (Api.Get name) = do
   proxy <- findProxy name
   case proxy of
     Just p -> return $ Api.ProxyResp (proxyToApiProxy (name, p))
     Nothing -> return $ Api.SuccessResp False
 
-handleCommand Api.ListComm = do
+handleCommand Api.List = do
   proxies <- get
   return $ Api.ProxiesResp (map proxyToApiProxy (Map.assocs proxies))
 
