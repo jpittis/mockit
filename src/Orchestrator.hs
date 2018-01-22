@@ -1,7 +1,9 @@
 module Orchestrator
     ( startOrchestrator
+    , stopOrchestrator
     , OrchReader
     , runCommand
+    , Orch
     ) where
 
 import qualified Api
@@ -13,7 +15,7 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict as Map
 
 import Control.Concurrent.MVar
-import Control.Concurrent.Async (async, Async)
+import Control.Concurrent.Async (async, Async, cancel)
 
 import Data.Text (Text)
 
@@ -38,17 +40,26 @@ startOrchestrator = do
   where
     requestLoop :: MVar Request -> ProxyMap -> IO ()
     requestLoop requests state = do
-      (Request command resps) <- readMVar requests
+      print "server waiting for command"
+      (Request command resps) <- takeMVar requests
+      print "server got command"
       r <- evalStateT (handleCommand command) state
+      print "server sending response"
       putMVar resps r
+      print "server sent response"
       requestLoop requests state
+
+stopOrchestrator :: Orch -> IO ()
+stopOrchestrator (Orch _ handle) = cancel handle
 
 runCommand :: Api.Command -> OrchReader Api.Response
 runCommand command = do
   (Orch requests _) <- ask
   response <- liftIO newEmptyMVar
+  liftIO $ print "client sending command"
   liftIO $ putMVar requests (Request command response)
-  liftIO $ readMVar response
+  liftIO $ print "client got command"
+  liftIO $ takeMVar response
 
 handleCommand :: Api.Command -> Proxies Api.Response
 
