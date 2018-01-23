@@ -1,9 +1,9 @@
-module Orchestrator
-    ( startOrchestrator
-    , stopOrchestrator
-    , OrchReader
+module Handler
+    ( startHandler
+    , stopHandler
+    , HandlerReader
     , runCommand
-    , Orch
+    , Handler
     ) where
 
 import qualified Api
@@ -24,20 +24,20 @@ import Control.Monad.Trans.Reader (ReaderT, ask)
 
 import Network.Socket
 
-data Orch = Orch { orchRequests :: MVar Request, orchHandle :: Async () }
+data Handler = Handler { handlerRequests :: MVar Request, handlerHandle :: Async () }
 
 data Request = Request { reqCommand :: Api.Command, reqResponse :: MVar Api.Response }
 
 type ProxyMap = Map.Map Text Proxy
 type Proxies a = StateT ProxyMap IO a
 
-type OrchReader = ReaderT Orch IO
+type HandlerReader = ReaderT Handler IO
 
-startOrchestrator :: IO Orch
-startOrchestrator = do
+startHandler :: IO Handler
+startHandler = do
   requests <- newEmptyMVar
   handle <- async $ requestLoop requests Map.empty
-  return (Orch requests handle)
+  return (Handler requests handle)
   where
     requestLoop :: MVar Request -> ProxyMap -> IO ()
     requestLoop requests state = do
@@ -46,12 +46,12 @@ startOrchestrator = do
       putMVar resps r
       requestLoop requests s
 
-stopOrchestrator :: Orch -> IO ()
-stopOrchestrator (Orch _ handle) = cancel handle
+stopHandler :: Handler -> IO ()
+stopHandler (Handler _ handle) = cancel handle
 
-runCommand :: Api.Command -> OrchReader Api.Response
+runCommand :: Api.Command -> HandlerReader Api.Response
 runCommand command = do
-  (Orch requests _) <- ask
+  (Handler requests _) <- ask
   response <- liftIO newEmptyMVar
   liftIO $ putMVar requests (Request command response)
   liftIO $ takeMVar response

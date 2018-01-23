@@ -2,7 +2,7 @@
 
 module Main where
 
-import Orchestrator (startOrchestrator, OrchReader, runCommand)
+import Handler (startHandler, HandlerReader, runCommand)
 
 import Web.Scotty.Trans
 import Data.Text.Lazy
@@ -10,7 +10,7 @@ import Control.Monad.Trans.Reader (runReaderT)
 
 import Control.Monad.Trans.Class (lift)
 
-routes :: ScottyT Text OrchReader ()
+routes :: ScottyT Text HandlerReader ()
 routes = do
   get    "/proxies"       respondToCommand
   post   "/proxies"       respondToCommand
@@ -25,6 +25,6 @@ routes = do
 
 main :: IO ()
 main = do
-  orch <- startOrchestrator
-  let readerToIO ma = runReaderT ma orch
+  h <- startHandler
+  let readerToIO ma = runReaderT ma h
   scottyT 3000 readerToIO routes

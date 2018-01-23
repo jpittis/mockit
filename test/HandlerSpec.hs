@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module OrchestratorSpec (spec) where
+module HandlerSpec (spec) where
 
 import Api
-import Orchestrator
+import Handler
 
 import Test.Hspec
 
@@ -14,9 +14,9 @@ import Data.Text (Text)
 
 spec :: Spec
 spec =
-  describe "Orchestrator" $
+  describe "Handler" $
     it "can handle all commands" $ do
-      orch <- startOrchestrator
+      orch <- startHandler
       runCommands orch $ do
         resp <- runCommand List
         liftIO $ resp `shouldBe` ProxiesResp []
@@ -71,8 +71,8 @@ spec =
 
         resp <- runCommand List
         liftIO $ resp `shouldBe` ProxiesResp []
-      stopOrchestrator orch
+      stopHandler orch
 
-runCommands :: Orch -> OrchReader a -> IO a
+runCommands :: Handler -> HandlerReader a -> IO a
 runCommands orch action =
   runReaderT action orch
