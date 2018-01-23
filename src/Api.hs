@@ -21,18 +21,18 @@ data State = Disabled | Enabled | Timeout
 data Proxy = Proxy {
     proxyName          :: Text
   , proxyState         :: State
-  , proxyListenHost    :: String
+  , proxyListenHost    :: HostName
   , proxyListenPort    :: Word16
-  , proxyUpstreamHost  :: String
+  , proxyUpstreamHost  :: HostName
   , proxyUpstreamPort  :: Word16
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Command =
     Create {
       creatName         :: Text
-    , creatListenHost   :: String
+    , creatListenHost   :: HostName
     , creatListenPort   :: Word16
-    , creatUpstreamHost :: String
+    , creatUpstreamHost :: HostName
     , creatUpstreamPort :: Word16
            }
   | Delete { deleteName :: Text }

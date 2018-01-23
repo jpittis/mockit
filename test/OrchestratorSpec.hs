@@ -20,10 +20,10 @@ spec =
       runCommands orch $ do
         resp <- runCommand List
         liftIO $ resp `shouldBe` ProxiesResp []
-        resp2 <- runCommand (Create ("foo" :: Text) "localhost" 3333 "localhost" 4444)
-        liftIO $ print "ran command"
-       --  liftIO $ resp2 `shouldBe` ProxiesResp []
-        -- liftIO $ print "all done"
+        resp <- runCommand (Create ("foo" :: Text) "localhost" 3333 "127.0.0.1" 4444)
+        liftIO $ resp `shouldBe` SuccessResp True
+        resp <- runCommand List
+        liftIO $ resp `shouldBe` SuccessResp False
       stopOrchestrator orch
 
 runCommands :: Orch -> OrchReader a -> IO a

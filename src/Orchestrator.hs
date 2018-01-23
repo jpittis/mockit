@@ -18,6 +18,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.Async (async, Async, cancel)
 
 import Data.Text (Text)
+import Data.Word (Word16)
 
 import Control.Monad.Trans.Reader (ReaderT, ask)
 
@@ -40,13 +41,9 @@ startOrchestrator = do
   where
     requestLoop :: MVar Request -> ProxyMap -> IO ()
     requestLoop requests state = do
-      print "server waiting for command"
       (Request command resps) <- takeMVar requests
-      print "server got command"
       r <- evalStateT (handleCommand command) state
-      print "server sending response"
       putMVar resps r
-      print "server sent response"
       requestLoop requests state
 
 stopOrchestrator :: Orch -> IO ()
@@ -56,9 +53,7 @@ runCommand :: Api.Command -> OrchReader Api.Response
 runCommand command = do
   (Orch requests _) <- ask
   response <- liftIO newEmptyMVar
-  liftIO $ print "client sending command"
   liftIO $ putMVar requests (Request command response)
-  liftIO $ print "client got command"
   liftIO $ takeMVar response
 
 handleCommand :: Api.Command -> Proxies Api.Response
@@ -74,11 +69,14 @@ handleCommand (Api.Create name listenHost listenPort upstreamHost upstreamPort) 
       put $ Map.insert name proxy proxies
       return $ Api.SuccessResp True
     createConfig listenHost listenPort upstreamHost upstreamPort = do
-      listenAddrHost <- inet_addr listenHost
-      upstreamAddrHost <- inet_addr upstreamHost
-      let listenAddr = SockAddrInet (fromIntegral listenPort) listenAddrHost
-      let upstreamAddr = SockAddrInet (fromIntegral upstreamPort) upstreamAddrHost
+      listenAddr <- getAddr listenHost listenPort
+      upstreamAddr <- getAddr upstreamHost upstreamPort
       return $ Config listenAddr upstreamAddr
+    getAddr :: HostName -> Word16 -> IO SockAddr
+    getAddr host port = do
+      let hints = defaultHints { addrFamily = AF_INET, addrSocketType = Stream }
+      addr : _ <- getAddrInfo (Just hints) (Just host) (Just (show port))
+      return $ addrAddress addr
 
 handleCommand (Api.Delete name) = do
   proxies <- get
