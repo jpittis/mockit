@@ -18,11 +18,11 @@ sendCommand command =
     create@Create{} ->
       send POST (https "localhost" /: "proxies") (ReqBodyJson create)
     Get name ->
-      send GET (https "localhost" /: "proxies") NoReqBody
+      send GET (https "localhost" /: "proxies" /: name) NoReqBody
     Delete name ->
-      send DELETE (https "localhost" /: "proxies") NoReqBody
+      send DELETE (https "localhost" /: "proxies" /: name) NoReqBody
     update@(Update name _) ->
-      send POST (https "localhost" /: "proxies") (ReqBodyJson update)
+      send POST (https "localhost" /: "proxies" /: name) (ReqBodyJson update)
   where
     send method scheme body = do
       resp <- runReq def $

@@ -12,9 +12,11 @@ import Control.Monad.Trans.Class (lift)
 
 routes :: ScottyT Text HandlerReader ()
 routes = do
-  get    "/proxies" respondToCommand
-  post   "/proxies" respondToCommand
-  delete "/proxies" respondToCommand
+  get    "/proxies"       respondToCommand
+  post   "/proxies"       respondToCommand
+  get    "/proxies/:name" respondToCommand
+  delete "/proxies/:name" respondToCommand
+  put    "/proxies/:name" respondToCommand
   where
     respondToCommand = do
       command <- jsonData
