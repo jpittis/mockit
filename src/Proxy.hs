@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 module Proxy
     ( Config (Config)
     , proxyFromConfig
@@ -22,17 +23,22 @@ import Control.Exception (finally)
 data Proxy = Proxy {
     config :: Config
   , state  :: ProxyState
-}
+} deriving (Show)
 
 data Config = Config {
     listenAddr   :: SockAddr
   , upstreamAddr :: SockAddr
-}
+} deriving (Show)
 
 data ProxyState =
     Disabled
   | Enabled ListenHandle
   | Timeout Socket
+
+instance Show ProxyState where
+  show (Enabled _) = "Enabled"
+  show (Timeout _) = "Timeout"
+  show Disabled = "Disabled"
 
 type ListenHandle = Async ()
 

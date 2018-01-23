@@ -42,9 +42,9 @@ startOrchestrator = do
     requestLoop :: MVar Request -> ProxyMap -> IO ()
     requestLoop requests state = do
       (Request command resps) <- takeMVar requests
-      r <- evalStateT (handleCommand command) state
+      (r, s) <- runStateT (handleCommand command) state
       putMVar resps r
-      requestLoop requests state
+      requestLoop requests s
 
 stopOrchestrator :: Orch -> IO ()
 stopOrchestrator (Orch _ handle) = cancel handle
@@ -74,7 +74,9 @@ handleCommand (Api.Create name listenHost listenPort upstreamHost upstreamPort) 
       return $ Config listenAddr upstreamAddr
     getAddr :: HostName -> Word16 -> IO SockAddr
     getAddr host port = do
-      let hints = defaultHints { addrFamily = AF_INET, addrSocketType = Stream }
+      let hints = defaultHints { addrFlags = [AI_NUMERICSERV]
+                               , addrFamily = AF_INET
+                               , addrSocketType = Stream }
       addr : _ <- getAddrInfo (Just hints) (Just host) (Just (show port))
       return $ addrAddress addr
 
@@ -119,8 +121,6 @@ findProxy name = do
 proxyToApi :: (Text, Proxy) -> IO Api.Proxy
 proxyToApi (name, proxy) = do
   let (Config listenAddr upstreamAddr) = proxyConfig proxy
-  let (SockAddrInet (PortNum listenPort) listenHostAddr) = listenAddr
-  let (SockAddrInet (PortNum upstreamPort) upstreamHostAddr) = upstreamAddr
-  listenHost <- inet_ntoa listenHostAddr
-  upstreamHost <- inet_ntoa upstreamHostAddr
-  return $ Api.Proxy name (proxyApiState proxy) listenHost listenPort upstreamHost upstreamPort
+  (Just listenHost, Just listenService) <- getNameInfo [NI_NUMERICSERV] True True listenAddr
+  (Just upstreamHost, Just upstreamService) <- getNameInfo [NI_NUMERICSERV] True True upstreamAddr
+  return $ Api.Proxy name (proxyApiState proxy) listenHost listenService upstreamHost upstreamService

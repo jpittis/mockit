@@ -13,7 +13,7 @@ import GHC.Generics
 
 import Data.Text (Text)
 import Data.Word (Word16)
-import Network.Socket (HostName)
+import Network.Socket (HostName, ServiceName)
 
 data State = Disabled | Enabled | Timeout
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
@@ -22,9 +22,9 @@ data Proxy = Proxy {
     proxyName          :: Text
   , proxyState         :: State
   , proxyListenHost    :: HostName
-  , proxyListenPort    :: Word16
+  , proxyListenPort    :: ServiceName
   , proxyUpstreamHost  :: HostName
-  , proxyUpstreamPort  :: Word16
+  , proxyUpstreamPort  :: ServiceName
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Command =

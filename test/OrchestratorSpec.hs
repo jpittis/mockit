@@ -23,7 +23,12 @@ spec =
         resp <- runCommand (Create ("foo" :: Text) "localhost" 3333 "127.0.0.1" 4444)
         liftIO $ resp `shouldBe` SuccessResp True
         resp <- runCommand List
-        liftIO $ resp `shouldBe` SuccessResp False
+        liftIO $ resp `shouldBe` ProxiesResp [Proxy { proxyName = "foo"
+                                                    , proxyState = Enabled
+                                                    , proxyListenHost = "localhost"
+                                                    , proxyListenPort = "3333"
+                                                    , proxyUpstreamHost = "localhost"
+                                                    , proxyUpstreamPort = "4444" }]
       stopOrchestrator orch
 
 runCommands :: Orch -> OrchReader a -> IO a
