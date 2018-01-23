@@ -1,4 +1,4 @@
-{-# LANGUAGE StandaloneDeriving #-}
+-- {-# LANGUAGE StandaloneDeriving #-}
 module Proxy
     ( Config (Config)
     , proxyFromConfig
@@ -38,7 +38,7 @@ data ProxyState =
 instance Show ProxyState where
   show (Enabled _) = "Enabled"
   show (Timeout _) = "Timeout"
-  show Disabled = "Disabled"
+  show Disabled    = "Disabled"
 
 type ListenHandle = Async ()
 
@@ -51,7 +51,7 @@ proxyConfig (Proxy config _) = config
 proxyApiState :: Proxy -> Api.State
 proxyApiState (Proxy _ state) =
   case state of
-    Disabled -> Api.Disabled
+    Disabled  -> Api.Disabled
     Enabled _ -> Api.Enabled
     Timeout _ -> Api.Timeout
 
