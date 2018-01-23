@@ -25,6 +25,8 @@ dependencies:
 - mtl
 - transformers
 - containers
+- req
+- data-default-class
 
 library:
   source-dirs: src
