@@ -27,14 +27,24 @@ dependencies:
 - containers
 - req
 - data-default-class
+- optparse-generic
 
 library:
   source-dirs: src
 
 executables:
-  mockit-exe:
+  mockit-server:
     main:                Main.hs
-    source-dirs:         app
+    source-dirs:         server
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - mockit
+  mockit-client:
+    main:                Main.hs
+    source-dirs:         client
     ghc-options:
     - -threaded
     - -rtsopts

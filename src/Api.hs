@@ -16,7 +16,7 @@ import Data.Word (Word16)
 import Network.Socket (HostName, ServiceName)
 
 data State = Disabled | Enabled | Timeout
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
+  deriving (Show, Eq, Generic, ToJSON, FromJSON, Read)
 
 data Proxy = Proxy {
     proxyName          :: Text
