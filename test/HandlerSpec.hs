@@ -74,6 +74,7 @@ spec =
         resp <- runCommand List
         liftIO $ resp `shouldBe` ProxiesResp []
       stopHandler orch
+      return ()
 
 runCommands :: Handler s -> HandlerReader s a -> IO a
 runCommands orch action =

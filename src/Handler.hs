@@ -17,7 +17,7 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict as Map
 
 import Control.Concurrent.MVar
-import Control.Concurrent.Async (async, Async, cancel)
+import Control.Concurrent.Async (async, Async, cancel, wait)
 
 import Data.Text (Text)
 import Data.Word (Word16)
@@ -26,7 +26,13 @@ import Control.Monad.Trans.Reader (ReaderT, ask)
 
 import Network.Socket
 
-data Handler s = Handler { handlerRequests :: MVar Request, handlerHandle :: Async s }
+import Data.Maybe (isJust)
+
+data Handler s = Handler {
+    handlerRequests :: MVar Request
+  , handlerHandle   :: Async s
+  , handlerShutdown :: MVar ()
+}
 
 data Request = Request { reqCommand :: Api.Command, reqResponse :: MVar Api.Response }
 
@@ -42,24 +48,35 @@ type Proxies a = HandlerState ProxyMap a
 startHandler :: s -> HandleCommand s -> IO (Handler s)
 startHandler init h = do
   requests <- newEmptyMVar
-  handle <- async $ requestLoop requests init
-  return (Handler requests handle)
+  hShutdown <- newEmptyMVar
+  handle <- async $ requestLoop requests init hShutdown
+  return (Handler requests handle hShutdown)
   where
-    requestLoop requests state = do
+    requestLoop requests state hShutdown = do
       (Request command resps) <- takeMVar requests
       (r, s) <- runStateT (h command) state
       putMVar resps r
-      if False then -- TODO shutodwn
+      maybeShutdown <- tryTakeMVar hShutdown
+      if isJust maybeShutdown then
         return s
       else
-        requestLoop requests s
+        requestLoop requests s hShutdown
 
-stopHandler :: Handler s -> IO ()
-stopHandler (Handler _ handle) = cancel handle
+stopHandler :: Handler s -> IO s
+stopHandler (Handler requests handle hShutdown) = do
+  sendShutdownSignal
+  unblockHandler
+  wait handle
+  where
+    sendShutdownSignal =
+      putMVar hShutdown ()
+    unblockHandler = do
+      resp <- newEmptyMVar
+      putMVar requests (Request Api.List resp)
 
 runCommand :: Api.Command -> (HandlerReader s) Api.Response
 runCommand command = do
-  (Handler requests _) <- ask
+  (Handler requests _ _) <- ask
   response <- liftIO newEmptyMVar
   liftIO $ putMVar requests (Request command response)
   liftIO $ takeMVar response

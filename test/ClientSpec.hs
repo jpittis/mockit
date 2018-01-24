@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module ClientSpec (spec) where
 
 import Api
@@ -10,19 +12,26 @@ import Test.Hspec
 import Control.Monad.Trans.State.Lazy
 import Control.Concurrent.Async
 
+import Control.Monad (mapM_)
+
+import Data.Text (Text)
+
 spec :: Spec
 spec =
   describe "Client" $
     it "requests all the endpoints" $ do
       handler <- startHandler [] handleCommandList
       server <- async $ serve handler
-      resp <- sendCommand List
-      print resp
-      resp <- sendCommand List
-      print resp
-      stopHandler handler
+      let commands = [ List
+                     , Get "foo"
+                     , Delete "foo"
+                     , Create ("foo" :: Text) "localhost" 3333 "localhost" 4444
+                     , Update "foo" Timeout
+                     ]
+      mapM_ sendCommand commands
+      finalState <- stopHandler handler
       cancel server
-      [] `shouldBe` [List, List, List]
+      finalState `shouldBe` (List : reverse commands)
 
 handleCommandList :: HandleCommand [Command]
 handleCommandList command = do
