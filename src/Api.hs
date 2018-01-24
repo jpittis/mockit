@@ -22,8 +22,7 @@ data Proxy = Proxy {
     proxyName          :: Text
   , proxyState         :: State
   , proxyListenHost    :: HostName
-  , proxyListenPort    :: ServiceName
-  , proxyUpstreamHost  :: HostName
+  , proxyListenPort    :: ServiceName , proxyUpstreamHost  :: HostName
   , proxyUpstreamPort  :: ServiceName
 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
@@ -39,16 +38,25 @@ data Command =
   | Update { updateName :: Text, updateState :: State }
   | Get    { getName :: Text }
   | List
-  deriving (Show, Eq, Generic, FromJSON)
+  deriving (Show, Eq, Generic)
 
 data Response =
-    SuccessResp Bool
-  | ProxyResp Proxy
-  | ProxiesResp [Proxy]
-  deriving (Show, Eq, Generic, FromJSON)
+    SuccessResp { respSuccess :: Bool    }
+  | ProxyResp   { respProxy   :: Proxy   }
+  | ProxiesResp { respProxies :: [Proxy] }
+  deriving (Show, Eq, Generic)
+
+untagged :: Options
+untagged = defaultOptions { sumEncoding = UntaggedValue }
 
 instance ToJSON Command where
-  toJSON = genericToJSON $ defaultOptions { sumEncoding = UntaggedValue }
+  toJSON = genericToJSON untagged
+
+instance FromJSON Command where
+  parseJSON = genericParseJSON untagged
 
 instance ToJSON Response where
-  toJSON = genericToJSON $ defaultOptions { sumEncoding = UntaggedValue }
+  toJSON = genericToJSON untagged
+
+instance FromJSON Response where
+  parseJSON = genericParseJSON untagged

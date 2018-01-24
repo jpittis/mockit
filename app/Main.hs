@@ -1,8 +1,9 @@
 module Main where
 
 import Http
-import Handler (startHandler, ProxyHandler)
+import Handler (startHandler, handleCommand)
 
+import qualified Data.Map.Strict as Map
 
 main :: IO ()
-main = (startHandler :: IO ProxyHandler) >>= serve
+main = startHandler Map.empty handleCommand >>= serve

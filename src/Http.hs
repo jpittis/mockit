@@ -4,28 +4,38 @@ module Http
     ( serve
     ) where
 
-import Handler (HandlerState, runCommand, Handler)
+import Handler (HandlerReader, runCommand, Handler)
+
+import Api (Command(Delete, List, Get))
 
 import Web.Scotty.Trans
 import Data.Text.Lazy
-import Control.Monad.State.Lazy (evalStateT)
+import Control.Monad.Reader (runReaderT)
 import Control.Monad.Trans.Class (lift)
 
-serve :: Handler h => h -> IO ()
+serve :: Handler s -> IO ()
 serve h = do
-  let readerToIO ma = evalStateT ma h
+  let readerToIO ma = runReaderT ma h
   scottyT 3000 readerToIO routes
 
-routes :: Handler h => ScottyT Text (HandlerState h) ()
+routes :: ScottyT Text (HandlerReader s) ()
 routes = do
-  get    "/proxies"       respondToCommand
-  post   "/proxies"       respondToCommand
-  get    "/proxies/:name" respondToCommand
-  delete "/proxies/:name" respondToCommand
-  put    "/proxies/:name" respondToCommand
+  post   "/proxies"         respondToJSONBody
+  put    "/proxies"         respondToJSONBody
+  get    "/proxies"         respondToList
+  get    "/proxies/:name" $ respondToName Get
+  delete "/proxies/:name" $ respondToName Delete
   where
-    respondToCommand = do
+    respondToJSONBody = do
       command <- jsonData
       response <- lift $ runCommand command
       json response
+    respondToList = do
+      response <- lift $ runCommand List
+      json response
+    respondToName command = do
+      name <- param "name"
+      response <- lift $ runCommand (command name)
+      json response
+
 

@@ -4,6 +4,8 @@ module Handler
     , HandlerReader
     , runCommand
     , Handler
+    , handleCommand
+    , HandleCommand
     ) where
 
 import qualified Api
@@ -24,32 +26,38 @@ import Control.Monad.Trans.Reader (ReaderT, ask)
 
 import Network.Socket
 
-data Handler = Handler { handlerRequests :: MVar Request, handlerHandle :: Async () }
+data Handler s = Handler { handlerRequests :: MVar Request, handlerHandle :: Async s }
 
 data Request = Request { reqCommand :: Api.Command, reqResponse :: MVar Api.Response }
 
+type HandlerReader s = ReaderT (Handler s) IO
+
+type HandlerState s a = StateT s IO a
+
+type HandleCommand s = Api.Command -> HandlerState s Api.Response
+
 type ProxyMap = Map.Map Text Proxy
-type Proxies a = StateT ProxyMap IO a
+type Proxies a = HandlerState ProxyMap a
 
-type HandlerReader = ReaderT Handler IO
-
-startHandler :: IO Handler
-startHandler = do
+startHandler :: s -> HandleCommand s -> IO (Handler s)
+startHandler init h = do
   requests <- newEmptyMVar
-  handle <- async $ requestLoop requests Map.empty
+  handle <- async $ requestLoop requests init
   return (Handler requests handle)
   where
-    requestLoop :: MVar Request -> ProxyMap -> IO ()
     requestLoop requests state = do
       (Request command resps) <- takeMVar requests
-      (r, s) <- runStateT (handleCommand command) state
+      (r, s) <- runStateT (h command) state
       putMVar resps r
-      requestLoop requests s
+      if False then -- TODO shutodwn
+        return s
+      else
+        requestLoop requests s
 
-stopHandler :: Handler -> IO ()
+stopHandler :: Handler s -> IO ()
 stopHandler (Handler _ handle) = cancel handle
 
-runCommand :: Api.Command -> HandlerReader Api.Response
+runCommand :: Api.Command -> (HandlerReader s) Api.Response
 runCommand command = do
   (Handler requests _) <- ask
   response <- liftIO newEmptyMVar

@@ -12,11 +12,13 @@ import Control.Monad.IO.Class (liftIO)
 
 import Data.Text (Text)
 
+import qualified Data.Map.Strict as Map
+
 spec :: Spec
 spec =
   describe "Handler" $
     it "can handle all commands" $ do
-      orch <- startHandler
+      orch <- startHandler Map.empty handleCommand
       runCommands orch $ do
         resp <- runCommand List
         liftIO $ resp `shouldBe` ProxiesResp []
@@ -73,6 +75,6 @@ spec =
         liftIO $ resp `shouldBe` ProxiesResp []
       stopHandler orch
 
-runCommands :: Handler -> HandlerReader a -> IO a
+runCommands :: Handler s -> HandlerReader s a -> IO a
 runCommands orch action =
   runReaderT action orch

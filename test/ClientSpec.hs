@@ -14,26 +14,18 @@ spec :: Spec
 spec =
   describe "Client" $
     it "requests all the endpoints" $ do
-      handler <- startHandler :: IO MockHandler
+      handler <- startHandler [] handleCommandList
       server <- async $ serve handler
-      -- (_, MockHandler commands) <- runCommands handler $ do
-      sendCommand List
-      sendCommand List
-      sendCommand List
+      resp <- sendCommand List
+      print resp
+      resp <- sendCommand List
+      print resp
       stopHandler handler
       cancel server
-      commands `shouldBe` [List, List, List]
+      [] `shouldBe` [List, List, List]
 
--- startServer =
---   handler <- startHandler :: IO MockHandler
-
-newtype MockHandler = MockHandler { parsedCommands :: [Command] }
-
-instance Handler MockHandler where
-  startHandler = return (MockHandler [])
-  stopHandler _ = return ()
-  runCommand command = do
-    (MockHandler parsedCommands) <- get
-    let commands = command : parsedCommands
-    put (MockHandler commands)
-    return $ SuccessResp True
+handleCommandList :: HandleCommand [Command]
+handleCommandList command = do
+  commands <- get
+  put $ command : commands
+  return $ SuccessResp True

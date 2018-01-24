@@ -14,17 +14,17 @@ sendCommand :: Api.Command -> IO Api.Response
 sendCommand command =
   case command of
     List ->
-      send GET (http "localhost:3000" /: "proxies") NoReqBody
+      send GET (http "localhost" /: "proxies") NoReqBody
     create@Create{} ->
-      send POST (http "localhost:3000" /: "proxies") (ReqBodyJson create)
+      send POST (http "localhost" /: "proxies") (ReqBodyJson create)
     Get name ->
-      send GET (http "localhost:3000" /: "proxies" /: name) NoReqBody
+      send GET (http "localhost" /: "proxies" /: name) NoReqBody
     Delete name ->
-      send DELETE (http "localhost:3000" /: "proxies" /: name) NoReqBody
-    update@(Update name _) ->
-      send POST (http "localhost:3000" /: "proxies" /: name) (ReqBodyJson update)
+      send DELETE (http "localhost" /: "proxies" /: name) NoReqBody
+    update@Update{} ->
+      send PUT (http "localhost" /: "proxies") (ReqBodyJson update)
   where
     send method scheme body = do
       resp <- runReq def $
-        req method scheme body jsonResponse mempty
+        req method scheme body jsonResponse (port 3000)
       return $ responseBody resp

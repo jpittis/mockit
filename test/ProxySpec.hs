@@ -67,9 +67,9 @@ spec = do
       client3 <- connectTo listenAddr
       print "4"
       attemptEcho client1 "1" `shouldReturn` "1"
-      print "5"
+      print "5 <----"
       attemptEcho client2 "2" `shouldReturn` "2"
-      print "6"
+      print "6 <-----"
       attemptEcho client3 "3" `shouldReturn` "3"
       print "7"
 
