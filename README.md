@@ -2,21 +2,24 @@
 
 A simple but effective failure testing proxy.
 
+# Warning
+
+So far this has been my exeriment to write real world Haskell code. For a real failure testing
+proxy, please check out [toxiproxy](https://github.com/shopify/toxiproxy). I'll remove this warning
+if I ever feel comfortable using this project in a production setting.
+
 # Status
 
 - Proxy, server and client are working and tested.
-
 - Fuzzy testing has yet to be performed.
-
 - High level client library has yet to be written.
 
-# Higher Level CLI Example
+# Low Level Haskell Example
 
-# Lower Level Haskell Example
-
-This example was copy pasted from [the test suite](https://github.com/jpittis/mockit/blob/master/test/ExampleSpec.hs). Remember that the currently exposed API is rather
-simple and low level. Before this project can be used in a real appliaction, a higher level API
-should be build.
+This example was copy pasted from [the test
+suite](https://github.com/jpittis/mockit/blob/master/test/ExampleSpec.hs). Remember that the
+currently exposed API is rather simple and low level. Before this project can be used in a real
+appliaction, a higher level API should be build.
 
 ```Haskell
 -- Let's start by creating a proxy. It's going to listen on port 4000 and forward to our
