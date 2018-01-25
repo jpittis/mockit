@@ -53,25 +53,17 @@ spec = do
       proxy <- disableProxy proxy
       echoSuccess listenAddr `shouldThrow` anyException
 
-    -- TODO this times out sometimes
     it "enabled proxy can accept multiple connections" $ do
       config@(Config listenAddr upstreamAddr) <- uniqueConfig
       startEchoServer upstreamAddr 3
       let proxy = proxyFromConfig config
       proxy <- enableProxy proxy
-      print "1"
       client1 <- connectTo listenAddr
-      print "2"
       client2 <- connectTo listenAddr
-      print "3"
       client3 <- connectTo listenAddr
-      print "4"
       attemptEcho client1 "1" `shouldReturn` "1"
-      print "5 <----"
       attemptEcho client2 "2" `shouldReturn` "2"
-      print "6 <-----"
       attemptEcho client3 "3" `shouldReturn` "3"
-      print "7"
 
   describe "Resilient Proxy" $ do
     it "behaves correctly when upstream is not present" $ do

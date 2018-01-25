@@ -1,12 +1,11 @@
-# mockit
+# Mockit
 
 A simple but effective failure testing proxy.
 
-# TODO
+# Status
 
-- Find out why that cleanup tests hangs once in a blue moon.
-- Write a fuzzy tester using hedgehog.
-- Write a cli.
-- Write a higher level client.
-- Refactor handler and tests.
-- Documentation
+- Proxy, server and client are working and tested.
+
+- Fuzzy testing has yet to be performed.
+
+- High level client library has yet to be written.

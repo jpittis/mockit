@@ -53,7 +53,7 @@ spec =
       withAsync startServer $ \_ ->
         reqSuccess 5000 `shouldReturn` Success
 
-    it "responds with success with proxy" $ do
+    it "attempts all proxy states" $ do
       handler <- startHandler Map.empty handleCommand
       server <- async $ serve handler
       withAsync startServer $ \_ -> do
@@ -61,13 +61,17 @@ spec =
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Success
 
-        resp <- sendCommand $ Update ("example" :: Text) Disabled -- this times out
+        resp <- sendCommand $ Update ("example" :: Text) Disabled
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Exception
 
         resp <- sendCommand $ Update ("example" :: Text) Timeout
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` TimeoutR
+
+        resp <- sendCommand $ Update ("example" :: Text) Enabled
+        resp `shouldBe` SuccessResp True
+        reqSuccess 4000 `shouldReturn` Success
 
         stopHandler handler
         cancel server

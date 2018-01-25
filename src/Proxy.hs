@@ -65,7 +65,7 @@ proxyConnection :: Socket -> SockAddr -> IO ()
 proxyConnection down upstreamAddr = do
   up <- socket AF_INET Stream 0
   connect up upstreamAddr
-  forward up down `finally` close up >> close down
+  forward up down `finally` (close up >> close down)
   where
     forward :: Socket -> Socket -> IO ()
     forward up down =
@@ -87,13 +87,14 @@ listenOn listenAddr = do
 listenAndAccept :: Config -> IO ListenHandle
 listenAndAccept (Config listenAddr upstreamAddr) = do
   server <- listenOn listenAddr
-  async (acceptLoop server upstreamAddr `finally` close server)
+  async $ acceptLoop server upstreamAddr `finally` close server
 
 enableProxy :: Proxy -> IO Proxy
 enableProxy proxy@(Proxy _ (Enabled _)) = return proxy
 enableProxy proxy@(Proxy _ (Timeout _)) = disableProxy proxy >>= enableProxy
-enableProxy (Proxy config Disabled) =
-  Proxy config . Enabled <$> listenAndAccept config
+enableProxy (Proxy config Disabled) = do
+  handle <- listenAndAccept config
+  return $ Proxy config (Enabled handle)
 
 disableProxy :: Proxy -> IO Proxy
 disableProxy proxy@(Proxy _ Disabled) = return proxy
@@ -105,5 +106,6 @@ disableProxy (Proxy config (Timeout server)) =
 timeoutProxy :: Proxy -> IO Proxy
 timeoutProxy proxy@(Proxy _ (Timeout _)) = return proxy
 timeoutProxy proxy@(Proxy _ (Enabled _)) = disableProxy proxy >>= timeoutProxy
-timeoutProxy proxy@(Proxy config@(Config listenAddr _) Disabled) =
-  Proxy config . Timeout <$> listenOn listenAddr
+timeoutProxy proxy@(Proxy config@(Config listenAddr _) Disabled) = do
+  server <- listenOn listenAddr
+  return $ Proxy config (Timeout server)
