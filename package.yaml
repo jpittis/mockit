@@ -28,6 +28,8 @@ dependencies:
 - req
 - data-default-class
 - optparse-generic
+- hedgehog
+- http-types
 
 library:
   source-dirs: src
