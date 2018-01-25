@@ -57,19 +57,19 @@ spec =
       handler <- startHandler Map.empty handleCommand
       server <- async $ serve handler
       withAsync startServer $ \_ -> do
-        resp <- sendCommand $ Create ("example" :: Text) "localhost" 4000 "localhost" 5000
+        resp <- sendCommand $ Create "example" "localhost" 4000 "localhost" 5000
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Success
 
-        resp <- sendCommand $ Update ("example" :: Text) Disabled
+        resp <- sendCommand $ Update "example" Disabled
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Exception
 
-        resp <- sendCommand $ Update ("example" :: Text) Timeout
+        resp <- sendCommand $ Update "example" Timeout
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` TimeoutR
 
-        resp <- sendCommand $ Update ("example" :: Text) Enabled
+        resp <- sendCommand $ Update "example" Enabled
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Success
 
