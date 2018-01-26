@@ -85,6 +85,10 @@ spec = do
       ensureCleansUpAfter $ \client server proxy ->
         close client
 
+    -- TODO I need to make sure a downstream or upstream close causes forward loop to exit.
+    -- TODO I have a feeling ipv6 is breaking things again. 127.0.0.1 works but localhost does not.
+    -- TODO A create, delete and create again seems to hang
+
 ensureCleansUpAfter :: (Socket -> Socket -> Proxy -> IO ()) -> IO ()
 ensureCleansUpAfter f = do
   (client, server, proxy) <- proxySocketPair

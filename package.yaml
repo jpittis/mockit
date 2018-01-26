@@ -30,6 +30,7 @@ dependencies:
 - optparse-generic
 - hedgehog
 - http-types
+- warp
 
 library:
   source-dirs: src

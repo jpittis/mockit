@@ -80,6 +80,7 @@ acceptLoop server upstreamAddr = do
 listenOn :: SockAddr -> IO Socket
 listenOn listenAddr = do
   server <- socket AF_INET Stream 0
+  setSocketOption server ReuseAddr 1
   bind server listenAddr
   listen server 1
   return server

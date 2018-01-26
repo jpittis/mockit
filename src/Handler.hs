@@ -17,7 +17,7 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict as Map
 
 import Control.Concurrent.MVar
-import Control.Concurrent.Async (async, Async, cancel, wait)
+import Control.Concurrent.Async (async, Async, cancel, wait, link)
 
 import Data.Text (Text)
 import Data.Word (Word16)
@@ -50,6 +50,7 @@ startHandler init h = do
   requests <- newEmptyMVar
   hShutdown <- newEmptyMVar
   handle <- async $ requestLoop requests init hShutdown
+  link handle
   return (Handler requests handle hShutdown)
   where
     requestLoop requests state hShutdown = do
@@ -106,9 +107,16 @@ handleCommand (Api.Create name listenHost listenPort upstreamHost upstreamPort) 
       return $ addrAddress addr
 
 handleCommand (Api.Delete name) = do
-  proxies <- get
-  put $ Map.delete name proxies
-  return $ Api.SuccessResp True
+  proxy <- findProxy name
+  case proxy of
+    Just proxy -> deleteProxy proxy
+    Nothing -> return $ Api.SuccessResp False
+  where
+    deleteProxy proxy = do
+      proxy <- liftIO $ disableProxy proxy
+      proxies <- get
+      put $ Map.delete name proxies
+      return $ Api.SuccessResp True
 
 handleCommand (Api.Update name state) = do
   proxy <- findProxy name

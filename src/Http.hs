@@ -13,10 +13,17 @@ import Data.Text.Lazy
 import Control.Monad.Reader (runReaderT)
 import Control.Monad.Trans.Class (lift)
 
+import Data.Default.Class (def)
+import Network.Wai.Handler.Warp (setPort)
+
 serve :: Handler s -> IO ()
 serve h = do
   let readerToIO ma = runReaderT ma h
-  scottyT 3000 readerToIO routes
+  scottyOptsT opts readerToIO routes
+  where
+    opts = def { verbose = 0
+               , settings = setPort 3000 $ settings def
+               }
 
 routes :: ScottyT Text (HandlerReader s) ()
 routes = do

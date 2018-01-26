@@ -19,9 +19,18 @@ import Data.Default.Class
 import qualified Data.Map.Strict as Map (empty)
 import Data.Text (Text)
 
-import Control.Exception (try, SomeException)
+import Control.Exception
+import System.IO.Error
 
-startServer = scotty 5000 (get "/" $ status status200)
+import Data.Default.Class (def)
+import Network.Wai.Handler.Warp (setPort)
+
+startServer =
+  scottyOpts opts (get "/" $ status status200)
+  where
+    opts = def { verbose = 0
+               , settings = setPort 5000 $ settings def
+               }
 
 data ReqResponse = TimeoutR | Success | Failure | Exception
   deriving (Show, Eq)
@@ -34,7 +43,7 @@ reqSuccess p = do
     Left _ -> return Exception
   where
     raceReq = do
-      e <- race sendReq (threadDelay (5^6) >> return TimeoutR)
+      e <- race sendReq (threadDelay (10^6) >> return TimeoutR)
       case e of
         Right r -> return r
         Left r -> return r
@@ -49,9 +58,10 @@ reqSuccess p = do
 spec :: Spec
 spec =
   describe "ExampleServer" $ do
-    it "responds with success without proxy" $
-      withAsync startServer $ \_ ->
-        reqSuccess 5000 `shouldReturn` Success
+    it "responds with success without proxy" $ do
+      handle <- async startServer
+      reqSuccess 5000 `shouldReturn` Success
+      cancel handle
 
     it "attempts all proxy states" $ do
       -- This is effectively what's run when you execute the mockit-server binary. It's going to
@@ -86,6 +96,40 @@ spec =
         -- Finally, we can move the proxy back into an enabled state and the request should be
         -- successful yet again.
         resp <- sendCommand $ Update "example" Enabled
+        resp `shouldBe` SuccessResp True
+        reqSuccess 4000 `shouldReturn` Success
+
+        resp <- sendCommand $ Update "example" Disabled
+        resp `shouldBe` SuccessResp True
+        reqSuccess 4000 `shouldReturn` Exception
+
+        stopHandler handler
+        cancel server
+
+    it "stopping the handler cleans up the sub processes" $ do
+      handler <- startHandler Map.empty handleCommand
+      server <- async $ serve handler
+      withAsync startServer $ \_ -> do
+        resp <- sendCommand $ Create "example" "localhost" 4000 "localhost" 5000
+        resp `shouldBe` SuccessResp True
+        reqSuccess 4000 `shouldReturn` Success
+
+        resp <- sendCommand $ Delete "example"
+        resp `shouldBe` SuccessResp True
+        reqSuccess 4000 `shouldReturn` Exception
+
+        resp <- sendCommand $ Create "example" "localhost" 4000 "localhost" 5000
+        resp `shouldBe` SuccessResp True
+        reqSuccess 4000 `shouldReturn` Success
+
+        stopHandler handler
+        cancel server
+
+      -- Make sure stop handler cleans up the proxy so we can create it again.
+      handler <- startHandler Map.empty handleCommand
+      server <- async $ serve handler
+      withAsync startServer $ \_ -> do
+        resp <- sendCommand $ Create "example" "localhost" 4000 "localhost" 5000
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Success
 
