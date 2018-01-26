@@ -16,7 +16,7 @@ import Network.Socket.ByteString
 import Network.Socket hiding (send, recv)
 
 import Control.Monad (forever)
-import Control.Concurrent.Async (async, withAsync, concurrently_, Async, cancel)
+import Control.Concurrent.Async (async, withAsync, concurrently_, Async, cancel, link)
 
 import Control.Exception (finally)
 

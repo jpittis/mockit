@@ -25,6 +25,9 @@ import System.IO.Error
 import Data.Default.Class (def)
 import Network.Wai.Handler.Warp (setPort)
 
+import Control.Monad
+import Proxy (disableProxy)
+
 startServer =
   scottyOpts opts (get "/" $ status status200)
   where
@@ -103,7 +106,8 @@ spec =
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Exception
 
-        stopHandler handler
+        state <- stopHandler handler
+        mapM_ disableProxy state
         cancel server
 
     it "stopping the handler cleans up the sub processes" $ do
@@ -122,7 +126,11 @@ spec =
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Success
 
-        stopHandler handler
+        state <- stopHandler handler
+        -- TODO: This is a cleanup hack. Threads should clean up on their own.  Linking is two way
+        -- which means cancelation triggers a parent thread kill. I need a way to do one way
+        -- linking!
+        mapM_ disableProxy state
         cancel server
 
       -- Make sure stop handler cleans up the proxy so we can create it again.
@@ -133,6 +141,7 @@ spec =
         resp `shouldBe` SuccessResp True
         reqSuccess 4000 `shouldReturn` Success
 
-        stopHandler handler
+        state <- stopHandler handler
+        mapM_ disableProxy state
         cancel server
 
